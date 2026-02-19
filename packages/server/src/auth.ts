@@ -13,6 +13,21 @@ export const auth = betterAuth({
   },
   trustedOrigins: ["http://localhost:5173"],
   secret: process.env.BETTER_AUTH_SECRET!,
+  hooks: {
+    after: [
+      {
+        matcher: (context) => context.path === "/sign-up/email",
+        handler: async (ctx) => {
+          const body = ctx.context.body as { user?: { id?: string } } | undefined;
+          if (body?.user?.id) {
+            await prisma.userProfile.create({
+              data: { userId: body.user.id },
+            });
+          }
+        },
+      },
+    ],
+  },
 });
 
 export type Auth = typeof auth;

@@ -2,6 +2,11 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { auth } from "./auth";
+import { projects } from "./routes/projects";
+import { workItems } from "./routes/work-items";
+import { trigger } from "./routes/trigger";
+import { dashboard } from "./routes/dashboard";
+import { status } from "./routes/status";
 
 const app = new Hono();
 
@@ -16,8 +21,15 @@ app.use(
   })
 );
 
-// Better Auth routes
+// Auth
 app.on(["POST", "GET"], "/api/auth/*", (c) => auth.handler(c.req.raw));
+
+// API routes
+app.route("/api/projects", projects);
+app.route("/api", workItems);
+app.route("/api/trigger", trigger);
+app.route("/api/dashboard", dashboard);
+app.route("/api/status", status);
 
 app.get("/", (c) => c.json({ status: "ok" }));
 
