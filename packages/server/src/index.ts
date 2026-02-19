@@ -7,6 +7,7 @@ import { workItems } from "./routes/work-items";
 import { trigger } from "./routes/trigger";
 import { dashboard } from "./routes/dashboard";
 import { status } from "./routes/status";
+import { profile } from "./routes/profile";
 
 const app = new Hono();
 
@@ -30,6 +31,7 @@ app.route("/api", workItems);
 app.route("/api/trigger", trigger);
 app.route("/api/dashboard", dashboard);
 app.route("/api/status", status);
+app.route("/api/profile", profile);
 
 app.get("/", (c) => c.json({ status: "ok" }));
 
