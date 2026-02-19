@@ -16,7 +16,7 @@ export function LoginPage() {
     e.preventDefault();
     setError("");
     try {
-      await signIn.username({ username, password });
+      await (signIn as any).username({ username, password });
       navigate("/");
     } catch {
       setError("Invalid credentials");

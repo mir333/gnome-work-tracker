@@ -17,7 +17,7 @@ export function RegisterPage() {
     e.preventDefault();
     setError("");
     try {
-      await signUp.username({ username, password, name });
+      await (signUp as any).username({ username, password, name });
       navigate("/");
     } catch {
       setError("Registration failed");
