@@ -1,0 +1,5 @@
+{
+  "name": "gnome-work-tracker",
+  "private": true,
+  "workspaces": ["packages/*"]
+}
