@@ -11,11 +11,10 @@
   "dependencies": {
     "hono": "latest",
     "better-auth": "latest",
-    "@prisma/client": "latest",
-    "@prisma/adapter-libsql": "latest"
+    "@prisma/client": "^6"
   },
   "devDependencies": {
-    "prisma": "latest",
+    "prisma": "^6",
     "@types/bun": "latest",
     "typescript": "latest"
   }
