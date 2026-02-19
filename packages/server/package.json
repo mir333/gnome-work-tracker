@@ -1,0 +1,22 @@
+{
+  "name": "@work-tracker/server",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "bun run --hot src/index.ts",
+    "db:generate": "bunx --bun prisma generate",
+    "db:migrate": "bunx --bun prisma migrate dev",
+    "db:studio": "bunx --bun prisma studio"
+  },
+  "dependencies": {
+    "hono": "latest",
+    "better-auth": "latest",
+    "@prisma/client": "latest",
+    "@prisma/adapter-libsql": "latest"
+  },
+  "devDependencies": {
+    "prisma": "latest",
+    "@types/bun": "latest",
+    "typescript": "latest"
+  }
+}
