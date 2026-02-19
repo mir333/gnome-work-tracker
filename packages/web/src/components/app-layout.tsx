@@ -24,6 +24,12 @@ export function AppLayout({ children }: { children: ReactNode }) {
         >
           Projects
         </Link>
+        <Link
+          to="/settings"
+          className={pathname === "/settings" ? "font-semibold" : "text-gray-500"}
+        >
+          Settings
+        </Link>
         <div className="ml-auto">
           <Button variant="ghost" size="sm" onClick={() => signOut()}>
             Logout
