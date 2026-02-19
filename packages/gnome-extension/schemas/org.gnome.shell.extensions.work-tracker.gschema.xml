@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.work-tracker"
+          path="/org/gnome/shell/extensions/work-tracker/">
+    <key name="server-url" type="s">
+      <default>''</default>
+      <summary>Server URL</summary>
+    </key>
+    <key name="api-token" type="s">
+      <default>''</default>
+      <summary>API token</summary>
+    </key>
+    <key name="slot-slugs" type="as">
+      <default>['', '', '', '', '', '']</default>
+      <summary>Project slugs for slots 1-6</summary>
+    </key>
+    <key name="slot-labels" type="as">
+      <default>['', '', '', '', '', '']</default>
+      <summary>Project labels for slots 1-6</summary>
+    </key>
+    <key name="active-slot" type="i">
+      <default>-1</default>
+      <summary>Currently active slot index (-1 = none)</summary>
+    </key>
+  </schema>
+</schemalist>

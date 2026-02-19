@@ -1,0 +1,9 @@
+{
+  "uuid": "work-tracker@gnome-work-tracker",
+  "name": "Work Tracker",
+  "description": "One-click time tracking with project buttons in the top panel.",
+  "version": 1,
+  "shell-version": ["45", "46", "47", "48", "49"],
+  "settings-schema": "org.gnome.shell.extensions.work-tracker",
+  "url": "https://github.com/mir333/gnome-work-tracker"
+}

@@ -1,0 +1,23 @@
+.work-tracker-bar {
+  spacing: 4px;
+  padding: 0 6px;
+}
+
+.work-tracker-button {
+  padding: 0 10px;
+  border-radius: 4px;
+  font-weight: bold;
+}
+
+.work-tracker-button:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
+.work-tracker-active {
+  background-color: rgba(53, 132, 228, 0.6);
+  color: white;
+}
+
+.work-tracker-stop {
+  color: rgba(246, 97, 81, 0.9);
+}
