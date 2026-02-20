@@ -1,5 +1,14 @@
 {
   "name": "gnome-work-tracker",
   "private": true,
-  "workspaces": ["packages/*"]
+  "workspaces": ["packages/*"],
+  "scripts": {
+    "dev": "bun run --filter '@work-tracker/server' dev & bun run --filter web dev",
+    "dev:server": "bun run --filter '@work-tracker/server' dev",
+    "dev:web": "bun run --filter web dev",
+    "build:web": "bun run --filter web build",
+    "db:generate": "bun run --filter '@work-tracker/server' db:generate",
+    "db:migrate": "bun run --filter '@work-tracker/server' db:migrate",
+    "db:studio": "bun run --filter '@work-tracker/server' db:studio"
+  }
 }

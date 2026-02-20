@@ -16,11 +16,16 @@ export function RegisterPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
-    try {
-      await (signUp as any).username({ username, password, name });
+    const { error } = await signUp.email({
+      email: `${username}@localhost.local`,
+      username,
+      password,
+      name,
+    });
+    if (error) {
+      setError(error.message || "Registration failed");
+    } else {
       navigate("/");
-    } catch {
-      setError("Registration failed");
     }
   }
 

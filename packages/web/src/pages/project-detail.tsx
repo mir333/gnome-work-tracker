@@ -51,12 +51,24 @@ function formatTime(iso: string): string {
   });
 }
 
+function toLocalDatetime(iso: string): string {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 export function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [project, setProject] = useState<Project | null>(null);
   const [items, setItems] = useState<WorkItem[]>([]);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm] = useState({
+  const [addOpen, setAddOpen] = useState(false);
+  const [addForm, setAddForm] = useState({
+    startedAt: "",
+    endedAt: "",
+    description: "",
+  });
+  const [editItem, setEditItem] = useState<WorkItem | null>(null);
+  const [editForm, setEditForm] = useState({
     startedAt: "",
     endedAt: "",
     description: "",
@@ -75,11 +87,37 @@ export function ProjectDetailPage() {
     load();
   }, [id]);
 
-  async function handleAddEntry(e: React.FormEvent) {
+  async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
-    await api.post(`/projects/${id}/work-items`, form);
-    setForm({ startedAt: "", endedAt: "", description: "" });
-    setDialogOpen(false);
+    await api.post(`/projects/${id}/work-items`, addForm);
+    setAddForm({ startedAt: "", endedAt: "", description: "" });
+    setAddOpen(false);
+    load();
+  }
+
+  function openEdit(item: WorkItem) {
+    setEditItem(item);
+    setEditForm({
+      startedAt: toLocalDatetime(item.startedAt),
+      endedAt: item.endedAt ? toLocalDatetime(item.endedAt) : "",
+      description: item.description || "",
+    });
+  }
+
+  async function handleEdit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editItem) return;
+    await api.put(`/work-items/${editItem.id}`, {
+      startedAt: editForm.startedAt,
+      endedAt: editForm.endedAt || undefined,
+      description: editForm.description,
+    });
+    setEditItem(null);
+    load();
+  }
+
+  async function handleDelete(itemId: string) {
+    await api.delete(`/work-items/${itemId}`);
     load();
   }
 
@@ -104,7 +142,7 @@ export function ProjectDetailPage() {
 
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold">Work Items</h2>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <Dialog open={addOpen} onOpenChange={setAddOpen}>
           <DialogTrigger asChild>
             <Button>Add Work Entry</Button>
           </DialogTrigger>
@@ -112,14 +150,14 @@ export function ProjectDetailPage() {
             <DialogHeader>
               <DialogTitle>Add Manual Entry</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleAddEntry} className="space-y-4">
+            <form onSubmit={handleAdd} className="space-y-4">
               <div>
                 <Label>Start Time</Label>
                 <Input
                   type="datetime-local"
-                  value={form.startedAt}
+                  value={addForm.startedAt}
                   onChange={(e) =>
-                    setForm({ ...form, startedAt: e.target.value })
+                    setAddForm({ ...addForm, startedAt: e.target.value })
                   }
                   required
                 />
@@ -128,9 +166,9 @@ export function ProjectDetailPage() {
                 <Label>End Time</Label>
                 <Input
                   type="datetime-local"
-                  value={form.endedAt}
+                  value={addForm.endedAt}
                   onChange={(e) =>
-                    setForm({ ...form, endedAt: e.target.value })
+                    setAddForm({ ...addForm, endedAt: e.target.value })
                   }
                   required
                 />
@@ -138,9 +176,9 @@ export function ProjectDetailPage() {
               <div>
                 <Label>Description</Label>
                 <Input
-                  value={form.description}
+                  value={addForm.description}
                   onChange={(e) =>
-                    setForm({ ...form, description: e.target.value })
+                    setAddForm({ ...addForm, description: e.target.value })
                   }
                 />
               </div>
@@ -150,6 +188,48 @@ export function ProjectDetailPage() {
         </Dialog>
       </div>
 
+      {/* Edit dialog */}
+      <Dialog open={!!editItem} onOpenChange={(open) => { if (!open) setEditItem(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Work Entry</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleEdit} className="space-y-4">
+            <div>
+              <Label>Start Time</Label>
+              <Input
+                type="datetime-local"
+                value={editForm.startedAt}
+                onChange={(e) =>
+                  setEditForm({ ...editForm, startedAt: e.target.value })
+                }
+                required
+              />
+            </div>
+            <div>
+              <Label>End Time</Label>
+              <Input
+                type="datetime-local"
+                value={editForm.endedAt}
+                onChange={(e) =>
+                  setEditForm({ ...editForm, endedAt: e.target.value })
+                }
+              />
+            </div>
+            <div>
+              <Label>Description</Label>
+              <Input
+                value={editForm.description}
+                onChange={(e) =>
+                  setEditForm({ ...editForm, description: e.target.value })
+                }
+              />
+            </div>
+            <Button type="submit">Save</Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       <Table>
         <TableHeader>
           <TableRow>
@@ -158,6 +238,7 @@ export function ProjectDetailPage() {
             <TableHead>End</TableHead>
             <TableHead>Duration</TableHead>
             <TableHead>Description</TableHead>
+            <TableHead>Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -178,6 +259,25 @@ export function ProjectDetailPage() {
                 {formatDuration(item.startedAt, item.endedAt)}
               </TableCell>
               <TableCell>{item.description || "\u2014"}</TableCell>
+              <TableCell>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => openEdit(item)}
+                  >
+                    Edit
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-red-500 hover:text-red-700"
+                    onClick={() => handleDelete(item.id)}
+                  >
+                    Delete
+                  </Button>
+                </div>
+              </TableCell>
             </TableRow>
           ))}
         </TableBody>

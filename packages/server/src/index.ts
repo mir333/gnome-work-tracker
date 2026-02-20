@@ -11,11 +11,13 @@ import { profile } from "./routes/profile";
 
 const app = new Hono();
 
+const corsOrigin = process.env.CORS_ORIGIN || "http://localhost:5173";
+
 app.use("*", logger());
 app.use(
   "*",
   cors({
-    origin: "http://localhost:5173",
+    origin: corsOrigin,
     allowHeaders: ["Content-Type", "Authorization"],
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     credentials: true,
@@ -36,6 +38,6 @@ app.route("/api/profile", profile);
 app.get("/", (c) => c.json({ status: "ok" }));
 
 export default {
-  port: 3000,
+  port: Number(process.env.PORT) || 3000,
   fetch: app.fetch,
 };

@@ -63,15 +63,46 @@ const SettingsIndicator = GObject.registerClass(
       const apiToken = this._settings.get_string("api-token");
 
       if (!apiToken) {
-        // Not logged in — show login form hint
-        const item = new PopupMenu.PopupMenuItem("Login required");
-        item.sensitive = false;
-        menu.addMenuItem(item);
+        // Server URL entry
+        const urlItem = new PopupMenu.PopupBaseMenuItem({ reactive: false });
+        const urlBox = new St.BoxLayout({ vertical: true, style: "padding: 4px 0;" });
+        urlBox.add_child(new St.Label({ text: "Server URL:", style: "font-size: 11px; margin-bottom: 2px;" }));
+        const urlEntry = new St.Entry({
+          hint_text: "http://localhost:3000",
+          text: this._settings.get_string("server-url"),
+          can_focus: true,
+          style: "width: 220px;",
+        });
+        urlBox.add_child(urlEntry);
+        urlItem.add_child(urlBox);
+        menu.addMenuItem(urlItem);
 
-        const serverItem = new PopupMenu.PopupMenuItem("Set server URL...");
-        menu.addMenuItem(serverItem);
-        // Note: Full login form would require more complex UI.
-        // For MVP, settings can be configured via GNOME Extensions app / dconf.
+        // API Token entry
+        const tokenItem = new PopupMenu.PopupBaseMenuItem({ reactive: false });
+        const tokenBox = new St.BoxLayout({ vertical: true, style: "padding: 4px 0;" });
+        tokenBox.add_child(new St.Label({ text: "API Token:", style: "font-size: 11px; margin-bottom: 2px;" }));
+        const tokenEntry = new St.Entry({
+          hint_text: "Paste token here",
+          can_focus: true,
+          style: "width: 220px;",
+        });
+        tokenBox.add_child(tokenEntry);
+        tokenItem.add_child(tokenBox);
+        menu.addMenuItem(tokenItem);
+
+        // Save button
+        const saveItem = new PopupMenu.PopupMenuItem("Save & Connect");
+        saveItem.connect("activate", () => {
+          const newUrl = urlEntry.get_text().replace(/\/+$/, "");
+          const newToken = tokenEntry.get_text().trim();
+          if (newUrl) this._settings.set_string("server-url", newUrl);
+          if (newToken) this._settings.set_string("api-token", newToken);
+          if (newUrl && newToken) {
+            this._extension.fetchAndStoreConfig();
+          }
+          this._buildMenu();
+        });
+        menu.addMenuItem(saveItem);
       } else {
         const refreshItem = new PopupMenu.PopupMenuItem("Refresh Config");
         refreshItem.connect("activate", () => {

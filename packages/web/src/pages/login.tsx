@@ -15,11 +15,11 @@ export function LoginPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
-    try {
-      await (signIn as any).username({ username, password });
+    const { error } = await signIn.username({ username, password });
+    if (error) {
+      setError(error.message || "Invalid credentials");
+    } else {
       navigate("/");
-    } catch {
-      setError("Invalid credentials");
     }
   }
 
