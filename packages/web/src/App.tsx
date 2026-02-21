@@ -6,6 +6,7 @@ import { ProjectsPage } from "@/pages/projects";
 import { ProjectDetailPage } from "@/pages/project-detail";
 import { DashboardPage } from "@/pages/dashboard";
 import { SettingsPage } from "@/pages/settings";
+import { ProfilePage } from "@/pages/profile";
 import { LauncherPage } from "@/pages/launcher";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -42,6 +43,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <ProjectDetailPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <ProfilePage />
             </ProtectedRoute>
           }
         />

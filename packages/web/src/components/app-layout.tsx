@@ -1,45 +1,128 @@
 import type { ReactNode } from "react";
-import { Link, useLocation } from "react-router-dom";
-import { signOut } from "@/lib/auth-client";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useSession, signOut } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  LayoutDashboard,
+  FolderOpen,
+  Rocket,
+  User,
+  Settings,
+  LogOut,
+  ChevronDown,
+} from "lucide-react";
+
+function NavLink({
+  to,
+  active,
+  icon: Icon,
+  children,
+}: {
+  to: string;
+  active: boolean;
+  icon: React.ComponentType<{ className?: string }>;
+  children: ReactNode;
+}) {
+  return (
+    <Link
+      to={to}
+      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm transition-colors ${
+        active
+          ? "bg-primary text-primary-foreground font-medium"
+          : "text-muted-foreground hover:text-foreground hover:bg-accent"
+      }`}
+    >
+      <Icon className="h-4 w-4" />
+      {children}
+    </Link>
+  );
+}
+
+function getInitials(name?: string | null): string {
+  if (!name) return "?";
+  return name
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+}
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
+  const navigate = useNavigate();
+  const { data: session } = useSession();
+  const user = session?.user;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="border-b bg-white px-6 py-3 flex items-center gap-6">
-        <span className="font-bold text-lg">Work Tracker</span>
-        <Link
-          to="/"
-          className={pathname === "/" ? "font-semibold" : "text-gray-500"}
-        >
-          Dashboard
-        </Link>
-        <Link
-          to="/projects"
-          className={
-            pathname.startsWith("/projects") ? "font-semibold" : "text-gray-500"
-          }
-        >
-          Projects
-        </Link>
-        <Link
-          to="/settings"
-          className={pathname === "/settings" ? "font-semibold" : "text-gray-500"}
-        >
-          Settings
-        </Link>
-        <Link
-          to="/launcher"
-          className={pathname === "/launcher" ? "font-semibold" : "text-gray-500"}
-        >
-          Launcher
-        </Link>
-        <div className="ml-auto">
-          <Button variant="ghost" size="sm" onClick={() => signOut()}>
-            Logout
-          </Button>
+    <div className="min-h-screen bg-muted/40">
+      <nav className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="flex h-14 items-center px-6 gap-1">
+          <Link to="/" className="font-bold text-lg mr-6 tracking-tight">
+            Work Tracker
+          </Link>
+
+          <NavLink to="/" active={pathname === "/"} icon={LayoutDashboard}>
+            Dashboard
+          </NavLink>
+          <NavLink
+            to="/projects"
+            active={pathname.startsWith("/projects")}
+            icon={FolderOpen}
+          >
+            Projects
+          </NavLink>
+          <NavLink
+            to="/launcher"
+            active={pathname === "/launcher"}
+            icon={Rocket}
+          >
+            Launcher
+          </NavLink>
+
+          <div className="ml-auto">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="flex items-center gap-2 px-2"
+                >
+                  <Avatar className="h-7 w-7">
+                    <AvatarFallback className="text-xs bg-primary text-primary-foreground">
+                      {getInitials(user?.name)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="text-sm font-medium max-w-[120px] truncate hidden sm:inline">
+                    {user?.name || "User"}
+                  </span>
+                  <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={() => navigate("/profile")}>
+                  <User className="mr-2 h-4 w-4" />
+                  Profile
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/settings")}>
+                  <Settings className="mr-2 h-4 w-4" />
+                  Settings
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => signOut()}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Logout
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       </nav>
       <main className="p-6">{children}</main>
