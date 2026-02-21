@@ -10,8 +10,10 @@ import * as Main from "resource:///org/gnome/shell/ui/main.js";
 const _session = new Soup.Session();
 
 function httpGet(url, callback) {
+  console.log(`[work-tracker] GET ${url}`);
   const message = Soup.Message.new("GET", url);
   if (!message) {
+    console.error(`[work-tracker] Invalid URL: ${url}`);
     callback(new Error(`Invalid URL: ${url}`), null);
     return;
   }
@@ -23,13 +25,15 @@ function httpGet(url, callback) {
       try {
         const bytes = session.send_and_read_finish(result);
         const statusCode = message.get_status();
+        const body = new TextDecoder().decode(bytes.get_data());
+        console.log(`[work-tracker] Response ${statusCode}: ${body}`);
         if (statusCode !== Soup.Status.OK) {
-          callback(new Error(`HTTP ${statusCode}`), null);
+          callback(new Error(`HTTP ${statusCode}: ${body}`), null);
           return;
         }
-        const body = new TextDecoder().decode(bytes.get_data());
         callback(null, JSON.parse(body));
       } catch (e) {
+        console.error(`[work-tracker] Request error: ${e.message}`);
         callback(e, null);
       }
     }
