@@ -6,8 +6,6 @@ import St from "gi://St";
 
 import { Extension } from "resource:///org/gnome/shell/extensions/extension.js";
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
-import * as PanelMenu from "resource:///org/gnome/shell/ui/panelMenu.js";
-import * as PopupMenu from "resource:///org/gnome/shell/ui/popupMenu.js";
 
 const _session = new Soup.Session();
 
@@ -37,91 +35,6 @@ function httpGet(url, callback) {
     }
   );
 }
-
-// Settings indicator (gear icon with popup for login/config)
-const SettingsIndicator = GObject.registerClass(
-  class SettingsIndicator extends PanelMenu.Button {
-    _init(extension) {
-      super._init(0.0, "Work Tracker Settings");
-      this._extension = extension;
-      this._settings = extension.getSettings();
-
-      this.add_child(
-        new St.Icon({
-          icon_name: "preferences-system-symbolic",
-          style_class: "system-status-icon",
-        })
-      );
-
-      this._buildMenu();
-    }
-
-    _buildMenu() {
-      const menu = this.menu;
-      menu.removeAll();
-
-      const apiToken = this._settings.get_string("api-token");
-
-      if (!apiToken) {
-        // Server URL entry
-        const urlItem = new PopupMenu.PopupBaseMenuItem({ reactive: false });
-        const urlBox = new St.BoxLayout({ vertical: true, style: "padding: 4px 0;" });
-        urlBox.add_child(new St.Label({ text: "Server URL:", style: "font-size: 11px; margin-bottom: 2px;" }));
-        const urlEntry = new St.Entry({
-          hint_text: "http://localhost:3000",
-          text: this._settings.get_string("server-url"),
-          can_focus: true,
-          style: "width: 220px;",
-        });
-        urlBox.add_child(urlEntry);
-        urlItem.add_child(urlBox);
-        menu.addMenuItem(urlItem);
-
-        // API Token entry
-        const tokenItem = new PopupMenu.PopupBaseMenuItem({ reactive: false });
-        const tokenBox = new St.BoxLayout({ vertical: true, style: "padding: 4px 0;" });
-        tokenBox.add_child(new St.Label({ text: "API Token:", style: "font-size: 11px; margin-bottom: 2px;" }));
-        const tokenEntry = new St.Entry({
-          hint_text: "Paste token here",
-          can_focus: true,
-          style: "width: 220px;",
-        });
-        tokenBox.add_child(tokenEntry);
-        tokenItem.add_child(tokenBox);
-        menu.addMenuItem(tokenItem);
-
-        // Save button
-        const saveItem = new PopupMenu.PopupMenuItem("Save & Connect");
-        saveItem.connect("activate", () => {
-          const newUrl = urlEntry.get_text().replace(/\/+$/, "");
-          const newToken = tokenEntry.get_text().trim();
-          if (newUrl) this._settings.set_string("server-url", newUrl);
-          if (newToken) this._settings.set_string("api-token", newToken);
-          if (newUrl && newToken) {
-            this._extension.fetchAndStoreConfig();
-          }
-          this._buildMenu();
-        });
-        menu.addMenuItem(saveItem);
-      } else {
-        const refreshItem = new PopupMenu.PopupMenuItem("Refresh Config");
-        refreshItem.connect("activate", () => {
-          this._extension.fetchAndStoreConfig();
-        });
-        menu.addMenuItem(refreshItem);
-
-        const logoutItem = new PopupMenu.PopupMenuItem("Clear credentials");
-        logoutItem.connect("activate", () => {
-          this._settings.set_string("api-token", "");
-          this._settings.set_string("server-url", "");
-          this._extension._bar?.refreshFromSettings();
-          this._buildMenu();
-        });
-        menu.addMenuItem(logoutItem);
-      }
-    }
-  }
-);
 
 // Project button
 const ProjectButton = GObject.registerClass(
@@ -238,20 +151,52 @@ const WorkTrackerBar = GObject.registerClass(
   }
 );
 
+function _getPanelBox(position) {
+  switch (position) {
+    case "center":
+      return Main.panel._centerBox;
+    case "right":
+      return Main.panel._rightBox;
+    default:
+      return Main.panel._leftBox;
+  }
+}
+
 // Main extension
 export default class WorkTrackerExtension extends Extension {
   enable() {
     this._settings = this.getSettings();
 
     this._bar = new WorkTrackerBar(this);
-    Main.panel._leftBox.insert_child_at_index(this._bar, 0);
 
-    this._settingsIndicator = new SettingsIndicator(this);
-    Main.panel.addToStatusArea(this.metadata.uuid, this._settingsIndicator);
+    // Add bar to the configured panel position
+    const position = this._settings.get_string("button-position");
+    _getPanelBox(position).insert_child_at_index(this._bar, 0);
 
-    this._settingsChangedId = this._settings.connect("changed", () => {
-      this._bar.refreshFromSettings();
+    // Listen for settings changes to refresh buttons
+    this._settingsChangedId = this._settings.connect("changed", (settings, key) => {
+      if (key === "button-position") {
+        this._moveBar();
+      } else if (key === "api-token") {
+        // Auto-fetch config when token is set from prefs
+        const token = settings.get_string("api-token");
+        const url = settings.get_string("server-url");
+        if (token && url) {
+          this.fetchAndStoreConfig();
+        } else {
+          this._bar.refreshFromSettings();
+        }
+      } else {
+        this._bar.refreshFromSettings();
+      }
     });
+
+    // Auto-fetch project data on startup if credentials exist
+    const token = this._settings.get_string("api-token");
+    const url = this._settings.get_string("server-url");
+    if (token && url) {
+      this.fetchAndStoreConfig();
+    }
   }
 
   disable() {
@@ -265,12 +210,19 @@ export default class WorkTrackerExtension extends Extension {
       this._bar = null;
     }
 
-    if (this._settingsIndicator) {
-      this._settingsIndicator.destroy();
-      this._settingsIndicator = null;
-    }
-
     this._settings = null;
+  }
+
+  _moveBar() {
+    if (!this._bar) return;
+
+    // Remove from current parent
+    const parent = this._bar.get_parent();
+    if (parent) parent.remove_child(this._bar);
+
+    // Add to new position
+    const position = this._settings.get_string("button-position");
+    _getPanelBox(position).insert_child_at_index(this._bar, 0);
   }
 
   fetchAndStoreConfig() {

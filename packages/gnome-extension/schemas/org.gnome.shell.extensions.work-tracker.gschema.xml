@@ -22,5 +22,9 @@
       <default>-1</default>
       <summary>Currently active slot index (-1 = none)</summary>
     </key>
+    <key name="button-position" type="s">
+      <default>'left'</default>
+      <summary>Panel position for project buttons (left, center, right)</summary>
+    </key>
   </schema>
 </schemalist>

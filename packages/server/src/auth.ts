@@ -23,7 +23,6 @@ export const auth = betterAuth({
           });
         }
       }
-      return { response: null, headers: null };
     },
   },
 });
