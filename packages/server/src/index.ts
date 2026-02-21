@@ -27,13 +27,13 @@ app.use(
 // Auth
 app.on(["POST", "GET"], "/api/auth/*", (c) => auth.handler(c.req.raw));
 
-// API routes
+// API routes (specific paths before the catch-all /api workItems mount)
 app.route("/api/projects", projects);
-app.route("/api", workItems);
 app.route("/api/trigger", trigger);
 app.route("/api/dashboard", dashboard);
 app.route("/api/status", status);
 app.route("/api/profile", profile);
+app.route("/api", workItems);
 
 app.get("/", (c) => c.json({ status: "ok" }));
 
