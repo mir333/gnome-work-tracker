@@ -26,6 +26,14 @@ export const workItemService = {
     return workItemRepository.findTodayByUser(userId);
   },
 
+  async getByDateRange(userId: string, from: string, to: string) {
+    return workItemRepository.findByUserAndDateRange(
+      userId,
+      new Date(from),
+      new Date(to)
+    );
+  },
+
   async createManual(
     projectId: string,
     userId: string,

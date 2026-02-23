@@ -7,7 +7,30 @@ const status = new Hono();
 
 status.get("/", requireAuth, async (c) => {
   const userId = c.get("userId");
+  const { date, from, to } = c.req.query();
+
   const active = await workItemService.getActive(userId);
+
+  // Date range query (for weekly/monthly reports)
+  if (from && to) {
+    const items = await workItemService.getByDateRange(userId, from, to);
+    return c.json({ active, items });
+  }
+
+  // Specific day query
+  if (date) {
+    const dayStart = new Date(date + "T00:00:00");
+    const dayEnd = new Date(dayStart);
+    dayEnd.setDate(dayEnd.getDate() + 1);
+    const items = await workItemService.getByDateRange(
+      userId,
+      dayStart.toISOString(),
+      dayEnd.toISOString()
+    );
+    return c.json({ active, items });
+  }
+
+  // Default: today
   const today = await workItemService.getToday(userId);
   return c.json({ active, today });
 });

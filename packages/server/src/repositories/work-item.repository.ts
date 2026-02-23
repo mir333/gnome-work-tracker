@@ -73,6 +73,17 @@ export const workItemRepository = {
     return prisma.workItem.update({ where: { id }, data });
   },
 
+  async findByUserAndDateRange(userId: string, from: Date, to: Date) {
+    return prisma.workItem.findMany({
+      where: {
+        userId,
+        startedAt: { gte: from, lt: to },
+      },
+      include: { project: true },
+      orderBy: { startedAt: "asc" },
+    });
+  },
+
   async delete(id: string) {
     return prisma.workItem.delete({ where: { id } });
   },
