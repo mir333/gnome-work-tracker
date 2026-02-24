@@ -1,13 +1,21 @@
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { username } from "better-auth/plugins";
+import { passkey } from "@better-auth/passkey";
 import { prisma } from "./db";
 
 export const auth = betterAuth({
   database: prismaAdapter(prisma, {
     provider: "sqlite",
   }),
-  plugins: [username()],
+  plugins: [
+    username(),
+    passkey({
+      rpID: process.env.PASSKEY_RP_ID || "localhost",
+      rpName: process.env.PASSKEY_RP_NAME || "Work Tracker",
+      origin: process.env.BETTER_AUTH_BASE_URL || "http://localhost:3000",
+    }),
+  ],
   emailAndPassword: {
     enabled: true,
   },

@@ -9,13 +9,14 @@
     "db:studio": "bunx --bun prisma studio"
   },
   "dependencies": {
-    "hono": "latest",
+    "@better-auth/passkey": "^1.4.19",
+    "@prisma/client": "^6",
     "better-auth": "latest",
-    "@prisma/client": "^6"
+    "hono": "latest"
   },
   "devDependencies": {
-    "prisma": "^6",
     "@types/bun": "latest",
+    "prisma": "^6",
     "typescript": "latest"
   }
 }
