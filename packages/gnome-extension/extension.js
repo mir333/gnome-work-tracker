@@ -6,6 +6,7 @@ import St from "gi://St";
 
 import { Extension } from "resource:///org/gnome/shell/extensions/extension.js";
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
+import * as LoginManager from "resource:///org/gnome/shell/misc/loginManager.js";
 
 const _session = new Soup.Session();
 
@@ -195,6 +196,26 @@ export default class WorkTrackerExtension extends Extension {
       }
     });
 
+    // Auto-stop on screen lock
+    this._screenShieldId = Main.screenShield.connect("active-changed", () => {
+      if (Main.screenShield.active && this._settings.get_boolean("auto-stop-on-lock")) {
+        console.log("[work-tracker] Screen locked, stopping tracker");
+        this._bar?._onStopClicked();
+      }
+    });
+
+    // Auto-stop on suspend/shutdown
+    this._loginManager = LoginManager.getLoginManager();
+    this._prepareForSleepId = this._loginManager.connect(
+      "prepare-for-sleep",
+      (_manager, suspending) => {
+        if (suspending && this._settings.get_boolean("auto-stop-on-lock")) {
+          console.log("[work-tracker] System suspending, stopping tracker");
+          this._bar?._onStopClicked();
+        }
+      }
+    );
+
     // Auto-fetch project data on startup if credentials exist
     const token = this._settings.get_string("api-token");
     const url = this._settings.get_string("server-url");
@@ -204,6 +225,17 @@ export default class WorkTrackerExtension extends Extension {
   }
 
   disable() {
+    if (this._screenShieldId) {
+      Main.screenShield.disconnect(this._screenShieldId);
+      this._screenShieldId = null;
+    }
+
+    if (this._prepareForSleepId && this._loginManager) {
+      this._loginManager.disconnect(this._prepareForSleepId);
+      this._prepareForSleepId = null;
+      this._loginManager = null;
+    }
+
     if (this._settingsChangedId) {
       this._settings.disconnect(this._settingsChangedId);
       this._settingsChangedId = null;

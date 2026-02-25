@@ -85,6 +85,17 @@ export default class WorkTrackerPreferences extends ExtensionPreferences {
     });
     page.add(appearanceGroup);
 
+    // Auto-stop on lock/suspend
+    const autoStopRow = new Adw.SwitchRow({
+      title: "Auto-stop on Lock/Suspend",
+      subtitle: "Stop tracking when the screen locks or system suspends",
+      active: settings.get_boolean("auto-stop-on-lock"),
+    });
+    autoStopRow.connect("notify::active", () => {
+      settings.set_boolean("auto-stop-on-lock", autoStopRow.get_active());
+    });
+    appearanceGroup.add(autoStopRow);
+
     // Button position
     const positionModel = new Gtk.StringList();
     positionModel.append("Left");

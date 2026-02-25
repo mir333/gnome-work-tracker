@@ -22,6 +22,10 @@
       <default>-1</default>
       <summary>Currently active slot index (-1 = none)</summary>
     </key>
+    <key name="auto-stop-on-lock" type="b">
+      <default>true</default>
+      <summary>Auto-stop tracking on screen lock or suspend</summary>
+    </key>
     <key name="button-position" type="s">
       <default>'left'</default>
       <summary>Panel position for project buttons (left, center, right)</summary>
