@@ -37,7 +37,4 @@ app.route("/api", workItems);
 
 app.get("/", (c) => c.json({ status: "ok" }));
 
-export default {
-  port: Number(process.env.PORT) || 3000,
-  fetch: app.fetch,
-};
+export default app;

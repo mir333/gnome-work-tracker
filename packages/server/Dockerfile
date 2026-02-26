@@ -15,12 +15,10 @@ RUN bunx --bun prisma generate
 COPY src ./src
 COPY tsconfig.json ./
 
-# Create non-root user and data directory for SQLite
+# Create non-root user
 RUN addgroup --system --gid 1001 appgroup && \
-    adduser --system --uid 1001 --ingroup appgroup appuser && \
-    mkdir -p /data && chown appuser:appgroup /data
+    adduser --system --uid 1001 --ingroup appgroup appuser
 
-ENV DATABASE_URL="file:/data/work-tracker.db"
 ENV PORT=3000
 
 EXPOSE 3000
@@ -30,5 +28,5 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
 
 USER appuser
 
-# Run migrations then start
+# Run migrations then start (DATABASE_URL provided via environment)
 CMD ["sh", "-c", "bunx --bun prisma migrate deploy && bun run src/index.ts"]
