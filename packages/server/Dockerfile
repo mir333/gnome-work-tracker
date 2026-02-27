@@ -1,7 +1,7 @@
 FROM oven/bun:alpine AS base
 WORKDIR /app
 
-RUN apk add --no-cache curl
+RUN apk add --no-cache curl su-exec
 
 # Install dependencies
 COPY package.json bun.lock* ./
@@ -28,7 +28,5 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
   CMD curl -f http://localhost:3000/ || exit 1
 
-USER appuser
-
-# Run migrations then start
-CMD ["sh", "-c", "bunx --bun prisma migrate deploy && bun run src/index.ts"]
+# Fix volume permissions at startup, then drop to appuser
+CMD ["sh", "-c", "chown appuser:appgroup /data && exec su-exec appuser sh -c 'bunx --bun prisma migrate deploy && bun run src/index.ts'"]
