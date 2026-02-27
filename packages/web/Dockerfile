@@ -14,6 +14,7 @@ RUN bun run build
 FROM nginx:alpine
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+RUN chown -R nginx:nginx /var/cache/nginx /var/run /var/log/nginx
 EXPOSE 80
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD wget -qO- http://localhost:80/ || exit 1
