@@ -5,3 +5,4 @@ dist/
 *.db-journal
 packages/server/prisma/generated/
 .idea
+.claude-ui
