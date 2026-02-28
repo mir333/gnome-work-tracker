@@ -9,7 +9,6 @@ services:
       - BETTER_AUTH_BASE_URL=${BETTER_AUTH_BASE_URL:-http://localhost:3300}
       - PORT=${PORT:-3300}
       - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:8080}
-      - PASSKEY_RP_ID=${PASSKEY_RP_ID:-localhost}
     volumes:
       - db-data:/data
     restart: unless-stopped
@@ -26,7 +25,7 @@ services:
       args:
         VITE_API_URL: ${VITE_API_URL:-http://localhost:3300}
     ports:
-      - "8080:80"
+      - "8800:80"
     depends_on:
       server:
         condition: service_healthy
