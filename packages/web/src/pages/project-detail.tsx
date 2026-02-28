@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { AppLayout } from "@/components/app-layout";
 import { Button } from "@/components/ui/button";
@@ -22,7 +22,16 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { api } from "@/lib/api";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import {
+  formatHM,
+  toDateString,
+  startOfMonth,
+  endOfMonth,
+  addMonths,
+  formatMonth,
+  shortDayName,
+} from "@/lib/date-utils";
+import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 
 interface Project {
   id: string;
@@ -36,6 +45,8 @@ interface WorkItem {
   endedAt: string | null;
   description: string | null;
 }
+
+type TabKey = "items" | "timesheet";
 
 function formatDuration(start: string, end: string | null): string {
   const s = new Date(start).getTime();
@@ -59,6 +70,41 @@ function toLocalDatetime(iso: string): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+interface DayRow {
+  date: string;
+  dayName: string;
+  totalMins: number;
+  descriptions: string;
+}
+
+function aggregateByDay(items: WorkItem[]): DayRow[] {
+  const map = new Map<string, { totalMins: number; descriptions: Set<string> }>();
+
+  for (const item of items) {
+    const dateKey = toDateString(new Date(item.startedAt));
+    const entry = map.get(dateKey) || { totalMins: 0, descriptions: new Set<string>() };
+
+    const s = new Date(item.startedAt).getTime();
+    const e = item.endedAt ? new Date(item.endedAt).getTime() : Date.now();
+    entry.totalMins += Math.floor((e - s) / 60000);
+
+    if (item.description?.trim()) {
+      entry.descriptions.add(item.description.trim());
+    }
+
+    map.set(dateKey, entry);
+  }
+
+  return Array.from(map.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([dateStr, { totalMins, descriptions }]) => ({
+      date: dateStr,
+      dayName: shortDayName(new Date(dateStr + "T12:00:00")),
+      totalMins,
+      descriptions: Array.from(descriptions).join("; ") || "\u2014",
+    }));
+}
+
 export function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [project, setProject] = useState<Project | null>(null);
@@ -76,6 +122,14 @@ export function ProjectDetailPage() {
     description: "",
   });
 
+  // Tab state
+  const [activeTab, setActiveTab] = useState<TabKey>("items");
+
+  // Monthly timesheet state
+  const [sheetMonth, setSheetMonth] = useState(() => startOfMonth(new Date()));
+  const [sheetItems, setSheetItems] = useState<WorkItem[]>([]);
+  const [hoursPerManDay, setHoursPerManDay] = useState(8);
+
   async function load() {
     const [p, w] = await Promise.all([
       api.get(`/projects/${id}`),
@@ -85,9 +139,42 @@ export function ProjectDetailPage() {
     setItems(w);
   }
 
+  const loadTimesheet = useCallback(async () => {
+    const from = toDateString(sheetMonth);
+    const to = toDateString(endOfMonth(sheetMonth));
+    const data = await api.get(
+      `/projects/${id}/work-items?dateFrom=${from}&dateTo=${to}`
+    );
+    setSheetItems(data);
+  }, [id, sheetMonth]);
+
+  const loadSettings = useCallback(async () => {
+    const data = await api.get("/profile/settings");
+    setHoursPerManDay(data.hoursPerManDay);
+  }, []);
+
   useEffect(() => {
     load();
+    loadSettings();
   }, [id]);
+
+  useEffect(() => {
+    if (activeTab === "timesheet") {
+      loadTimesheet();
+    }
+  }, [activeTab, loadTimesheet]);
+
+  const dayRows = useMemo(() => aggregateByDay(sheetItems), [sheetItems]);
+
+  const monthTotalMins = useMemo(
+    () => dayRows.reduce((sum, r) => sum + r.totalMins, 0),
+    [dayRows]
+  );
+
+  const manDays = useMemo(
+    () => (monthTotalMins / 60 / hoursPerManDay).toFixed(1),
+    [monthTotalMins, hoursPerManDay]
+  );
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
@@ -95,6 +182,7 @@ export function ProjectDetailPage() {
     setAddForm({ startedAt: "", endedAt: "", description: "" });
     setAddOpen(false);
     load();
+    if (activeTab === "timesheet") loadTimesheet();
   }
 
   function openEdit(item: WorkItem) {
@@ -116,11 +204,21 @@ export function ProjectDetailPage() {
     });
     setEditItem(null);
     load();
+    if (activeTab === "timesheet") loadTimesheet();
   }
 
   async function handleDelete(itemId: string) {
     await api.delete(`/work-items/${itemId}`);
     load();
+    if (activeTab === "timesheet") loadTimesheet();
+  }
+
+  function prevMonth() {
+    setSheetMonth((m) => startOfMonth(addMonths(m, -1)));
+  }
+
+  function nextMonth() {
+    setSheetMonth((m) => startOfMonth(addMonths(m, 1)));
   }
 
   if (!project)
@@ -148,179 +246,286 @@ export function ProjectDetailPage() {
           </div>
         </div>
 
-        {/* Work Items Header */}
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">Work Items</h2>
-          <Dialog open={addOpen} onOpenChange={setAddOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Entry
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Add Manual Entry</DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleAdd} className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Start Time</Label>
-                  <Input
-                    type="datetime-local"
-                    value={addForm.startedAt}
-                    onChange={(e) =>
-                      setAddForm({ ...addForm, startedAt: e.target.value })
-                    }
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>End Time</Label>
-                  <Input
-                    type="datetime-local"
-                    value={addForm.endedAt}
-                    onChange={(e) =>
-                      setAddForm({ ...addForm, endedAt: e.target.value })
-                    }
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Description</Label>
-                  <Input
-                    value={addForm.description}
-                    onChange={(e) =>
-                      setAddForm({ ...addForm, description: e.target.value })
-                    }
-                    placeholder="Optional description"
-                  />
-                </div>
-                <Button type="submit" className="w-full">
-                  Add
-                </Button>
-              </form>
-            </DialogContent>
-          </Dialog>
+        {/* Tab Switcher */}
+        <div className="flex gap-1 mb-6 bg-muted rounded-lg p-1">
+          {(
+            [
+              { key: "items", label: "Work Items" },
+              { key: "timesheet", label: "Monthly Timesheet" },
+            ] as const
+          ).map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                activeTab === tab.key
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
 
-        {/* Edit dialog */}
-        <Dialog
-          open={!!editItem}
-          onOpenChange={(open) => {
-            if (!open) setEditItem(null);
-          }}
-        >
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Edit Work Entry</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleEdit} className="space-y-4">
-              <div className="space-y-2">
-                <Label>Start Time</Label>
-                <Input
-                  type="datetime-local"
-                  value={editForm.startedAt}
-                  onChange={(e) =>
-                    setEditForm({ ...editForm, startedAt: e.target.value })
-                  }
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>End Time</Label>
-                <Input
-                  type="datetime-local"
-                  value={editForm.endedAt}
-                  onChange={(e) =>
-                    setEditForm({ ...editForm, endedAt: e.target.value })
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Description</Label>
-                <Input
-                  value={editForm.description}
-                  onChange={(e) =>
-                    setEditForm({ ...editForm, description: e.target.value })
-                  }
-                  placeholder="Optional description"
-                />
-              </div>
-              <Button type="submit" className="w-full">
-                Save
-              </Button>
-            </form>
-          </DialogContent>
-        </Dialog>
-
-        {/* Table */}
-        {items.length === 0 ? (
-          <Card>
-            <div className="py-12 text-center text-muted-foreground text-sm">
-              No work items yet
+        {/* ================================================================ */}
+        {/* WORK ITEMS TAB                                                   */}
+        {/* ================================================================ */}
+        {activeTab === "items" && (
+          <>
+            {/* Work Items Header */}
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold">Work Items</h2>
+              <Dialog open={addOpen} onOpenChange={setAddOpen}>
+                <DialogTrigger asChild>
+                  <Button>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Entry
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Add Manual Entry</DialogTitle>
+                  </DialogHeader>
+                  <form onSubmit={handleAdd} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>Start Time</Label>
+                      <Input
+                        type="datetime-local"
+                        value={addForm.startedAt}
+                        onChange={(e) =>
+                          setAddForm({ ...addForm, startedAt: e.target.value })
+                        }
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>End Time</Label>
+                      <Input
+                        type="datetime-local"
+                        value={addForm.endedAt}
+                        onChange={(e) =>
+                          setAddForm({ ...addForm, endedAt: e.target.value })
+                        }
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Description</Label>
+                      <Input
+                        value={addForm.description}
+                        onChange={(e) =>
+                          setAddForm({ ...addForm, description: e.target.value })
+                        }
+                        placeholder="Optional description"
+                      />
+                    </div>
+                    <Button type="submit" className="w-full">
+                      Add
+                    </Button>
+                  </form>
+                </DialogContent>
+              </Dialog>
             </div>
-          </Card>
-        ) : (
-          <Card>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Start</TableHead>
-                  <TableHead>End</TableHead>
-                  <TableHead>Duration</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {items.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell className="text-muted-foreground">
-                      {new Date(item.startedAt).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell className="font-mono text-sm">
-                      {formatTime(item.startedAt)}
-                    </TableCell>
-                    <TableCell>
-                      {item.endedAt ? (
-                        <span className="font-mono text-sm">
-                          {formatTime(item.endedAt)}
-                        </span>
-                      ) : (
-                        <Badge>Active</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="font-mono text-sm">
-                      {formatDuration(item.startedAt, item.endedAt)}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {item.description || "\u2014"}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => openEdit(item)}
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                          onClick={() => handleDelete(item.id)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Card>
+
+            {/* Edit dialog */}
+            <Dialog
+              open={!!editItem}
+              onOpenChange={(open) => {
+                if (!open) setEditItem(null);
+              }}
+            >
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Edit Work Entry</DialogTitle>
+                </DialogHeader>
+                <form onSubmit={handleEdit} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Start Time</Label>
+                    <Input
+                      type="datetime-local"
+                      value={editForm.startedAt}
+                      onChange={(e) =>
+                        setEditForm({ ...editForm, startedAt: e.target.value })
+                      }
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>End Time</Label>
+                    <Input
+                      type="datetime-local"
+                      value={editForm.endedAt}
+                      onChange={(e) =>
+                        setEditForm({ ...editForm, endedAt: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Description</Label>
+                    <Input
+                      value={editForm.description}
+                      onChange={(e) =>
+                        setEditForm({ ...editForm, description: e.target.value })
+                      }
+                      placeholder="Optional description"
+                    />
+                  </div>
+                  <Button type="submit" className="w-full">
+                    Save
+                  </Button>
+                </form>
+              </DialogContent>
+            </Dialog>
+
+            {/* Table */}
+            {items.length === 0 ? (
+              <Card>
+                <div className="py-12 text-center text-muted-foreground text-sm">
+                  No work items yet
+                </div>
+              </Card>
+            ) : (
+              <Card>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Start</TableHead>
+                      <TableHead>End</TableHead>
+                      <TableHead>Duration</TableHead>
+                      <TableHead>Description</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {items.map((item) => (
+                      <TableRow key={item.id}>
+                        <TableCell className="text-muted-foreground">
+                          {new Date(item.startedAt).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell className="font-mono text-sm">
+                          {formatTime(item.startedAt)}
+                        </TableCell>
+                        <TableCell>
+                          {item.endedAt ? (
+                            <span className="font-mono text-sm">
+                              {formatTime(item.endedAt)}
+                            </span>
+                          ) : (
+                            <Badge>Active</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="font-mono text-sm">
+                          {formatDuration(item.startedAt, item.endedAt)}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {item.description || "\u2014"}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openEdit(item)}
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                              onClick={() => handleDelete(item.id)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Card>
+            )}
+          </>
+        )}
+
+        {/* ================================================================ */}
+        {/* MONTHLY TIMESHEET TAB                                            */}
+        {/* ================================================================ */}
+        {activeTab === "timesheet" && (
+          <>
+            {/* Month navigation */}
+            <div className="flex items-center justify-between mb-4">
+              <Button variant="ghost" size="icon" onClick={prevMonth}>
+                <ChevronLeft className="h-5 w-5" />
+              </Button>
+              <h2 className="text-lg font-semibold">
+                {formatMonth(sheetMonth)}
+              </h2>
+              <Button variant="ghost" size="icon" onClick={nextMonth}>
+                <ChevronRight className="h-5 w-5" />
+              </Button>
+            </div>
+
+            {/* Monthly summary */}
+            <Card className="mb-4">
+              <div className="px-6 py-4 flex items-center justify-between">
+                <span className="text-sm font-medium text-muted-foreground">
+                  Monthly Total
+                </span>
+                <span className="text-lg font-semibold">
+                  {formatHM(monthTotalMins)}{" "}
+                  <span className="text-muted-foreground font-normal text-sm">
+                    ({manDays} MD)
+                  </span>
+                </span>
+              </div>
+            </Card>
+
+            {/* Timesheet table */}
+            {dayRows.length === 0 ? (
+              <Card>
+                <div className="py-12 text-center text-muted-foreground text-sm">
+                  No work items this month
+                </div>
+              </Card>
+            ) : (
+              <Card>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Day</TableHead>
+                      <TableHead>Hours</TableHead>
+                      <TableHead>Description</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {dayRows.map((row) => (
+                      <TableRow key={row.date}>
+                        <TableCell className="text-muted-foreground">
+                          {new Date(row.date + "T12:00:00").toLocaleDateString(
+                            undefined,
+                            { month: "short", day: "numeric", year: "numeric" }
+                          )}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {row.dayName}
+                        </TableCell>
+                        <TableCell className="font-mono text-sm font-medium">
+                          {formatHM(row.totalMins)}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground max-w-md truncate">
+                          {row.descriptions}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Card>
+            )}
+          </>
         )}
       </div>
     </AppLayout>

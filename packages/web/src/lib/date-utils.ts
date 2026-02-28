@@ -73,3 +73,10 @@ export function formatDateRange(from: Date, to: Date): string {
 export function formatMonth(d: Date): string {
   return d.toLocaleDateString(undefined, { month: "long", year: "numeric" });
 }
+
+/** Add N months to a date */
+export function addMonths(d: Date, n: number): Date {
+  const result = new Date(d);
+  result.setMonth(result.getMonth() + n);
+  return result;
+}

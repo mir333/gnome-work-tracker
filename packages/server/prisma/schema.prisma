@@ -22,6 +22,7 @@ model User {
   accounts        Account[]
   passkeys        Passkey[]
   profile         UserProfile?
+  settings        UserSettings?
   projects        Project[]
   workItems       WorkItem[]
   dashboardConfig DashboardConfig[]
@@ -89,6 +90,14 @@ model UserProfile {
   apiToken String @unique @default(uuid())
 
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model UserSettings {
+  id             String @id @default(uuid())
+  userId         String @unique
+  hoursPerManDay Float  @default(8)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Project {
