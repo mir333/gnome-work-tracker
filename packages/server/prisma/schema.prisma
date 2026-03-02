@@ -26,6 +26,7 @@ model User {
   projects        Project[]
   workItems       WorkItem[]
   dashboardConfig DashboardConfig[]
+  timesheetShares TimesheetShare[]
 }
 
 model Session {
@@ -108,9 +109,10 @@ model Project {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  workItems      WorkItem[]
-  dashboardSlots DashboardConfig[]
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workItems       WorkItem[]
+  dashboardSlots  DashboardConfig[]
+  timesheetShares TimesheetShare[]
 }
 
 model WorkItem {
@@ -138,4 +140,19 @@ model DashboardConfig {
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@unique([userId, slot])
+}
+
+model TimesheetShare {
+  id        String   @id @default(uuid())
+  token     String   @unique @default(uuid())
+  projectId String
+  userId    String
+  month     String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, month])
 }

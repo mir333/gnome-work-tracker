@@ -22,7 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { api } from "@/lib/api";
-import { Plus, Trash2, LayoutDashboard } from "lucide-react";
+import { Plus, Pencil, Trash2, LayoutDashboard } from "lucide-react";
 
 interface Project {
   id: string;
@@ -42,6 +42,8 @@ export function ProjectsPage() {
   const [dashboardProjectIds, setDashboardProjectIds] = useState<Set<string>>(new Set());
   const [newName, setNewName] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editProject, setEditProject] = useState<Project | null>(null);
+  const [editName, setEditName] = useState("");
 
   async function load() {
     const [data, slots] = await Promise.all([
@@ -61,6 +63,14 @@ export function ProjectsPage() {
     await api.post("/projects", { name: newName });
     setNewName("");
     setDialogOpen(false);
+    load();
+  }
+
+  async function handleEditName(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editProject) return;
+    await api.put(`/projects/${editProject.id}`, { name: editName });
+    setEditProject(null);
     load();
   }
 
@@ -194,6 +204,17 @@ export function ProjectsPage() {
                           <Button
                             variant="ghost"
                             size="sm"
+                            onClick={() => {
+                              setEditProject(p);
+                              setEditName(p.name);
+                            }}
+                            title="Rename project"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             className="text-destructive hover:text-destructive hover:bg-destructive/10"
                             onClick={() => handleDelete(p.id)}
                           >
@@ -208,6 +229,34 @@ export function ProjectsPage() {
             </Table>
           </Card>
         )}
+
+        {/* Rename project dialog */}
+        <Dialog
+          open={!!editProject}
+          onOpenChange={(open) => {
+            if (!open) setEditProject(null);
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Rename Project</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleEditName} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="editName">Project Name</Label>
+                <Input
+                  id="editName"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  required
+                />
+              </div>
+              <Button type="submit" className="w-full">
+                Save
+              </Button>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
     </AppLayout>
   );

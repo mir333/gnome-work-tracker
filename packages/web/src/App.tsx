@@ -8,6 +8,7 @@ import { DashboardPage } from "@/pages/dashboard";
 import { SettingsPage } from "@/pages/settings";
 import { ProfilePage } from "@/pages/profile";
 import { LauncherPage } from "@/pages/launcher";
+import { SharedTimesheetPage } from "@/pages/shared-timesheet";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { data: session, isPending } = useSession();
@@ -67,6 +68,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <LauncherPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/shared/:token"
+          element={
+            <ProtectedRoute>
+              <SharedTimesheetPage />
             </ProtectedRoute>
           }
         />

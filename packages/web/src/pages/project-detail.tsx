@@ -31,7 +31,7 @@ import {
   formatMonth,
   shortDayName,
 } from "@/lib/date-utils";
-import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, Share2, Copy, Check, X } from "lucide-react";
 
 interface Project {
   id: string;
@@ -122,6 +122,10 @@ export function ProjectDetailPage() {
     description: "",
   });
 
+  // Edit project name
+  const [editNameOpen, setEditNameOpen] = useState(false);
+  const [editNameValue, setEditNameValue] = useState("");
+
   // Tab state
   const [activeTab, setActiveTab] = useState<TabKey>("items");
 
@@ -129,6 +133,18 @@ export function ProjectDetailPage() {
   const [sheetMonth, setSheetMonth] = useState(() => startOfMonth(new Date()));
   const [sheetItems, setSheetItems] = useState<WorkItem[]>([]);
   const [hoursPerManDay, setHoursPerManDay] = useState(8);
+
+  // Share timesheet state
+  interface ShareInfo {
+    id: string;
+    token: string;
+    month: string;
+    createdAt: string;
+  }
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [shareToken, setShareToken] = useState<string | null>(null);
+  const [shareCopied, setShareCopied] = useState(false);
+  const [shares, setShares] = useState<ShareInfo[]>([]);
 
   async function load() {
     const [p, w] = await Promise.all([
@@ -176,6 +192,13 @@ export function ProjectDetailPage() {
     [monthTotalMins, hoursPerManDay]
   );
 
+  async function handleEditProjectName(e: React.FormEvent) {
+    e.preventDefault();
+    await api.put(`/projects/${id}`, { name: editNameValue });
+    setEditNameOpen(false);
+    load();
+  }
+
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
     await api.post(`/projects/${id}/work-items`, addForm);
@@ -221,6 +244,32 @@ export function ProjectDetailPage() {
     setSheetMonth((m) => startOfMonth(addMonths(m, 1)));
   }
 
+  async function handleCreateShare() {
+    const month = `${sheetMonth.getFullYear()}-${String(sheetMonth.getMonth() + 1).padStart(2, "0")}`;
+    const share = await api.post(`/projects/${id}/shares`, { month });
+    setShareToken(share.token);
+    setShareDialogOpen(true);
+    loadShares();
+  }
+
+  async function loadShares() {
+    const data = await api.get(`/projects/${id}/shares`);
+    setShares(data);
+  }
+
+  async function handleRevokeShare(shareId: string) {
+    await api.delete(`/shares/${shareId}`);
+    loadShares();
+  }
+
+  function copyShareLink() {
+    if (!shareToken) return;
+    const url = `${window.location.origin}/shared/${shareToken}`;
+    navigator.clipboard.writeText(url);
+    setShareCopied(true);
+    setTimeout(() => setShareCopied(false), 2000);
+  }
+
   if (!project)
     return (
       <AppLayout>
@@ -235,7 +284,20 @@ export function ProjectDetailPage() {
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-2xl font-bold tracking-tight">{project.name}</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold tracking-tight">{project.name}</h1>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setEditNameValue(project.name);
+                setEditNameOpen(true);
+              }}
+              title="Rename project"
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+          </div>
           <div className="flex flex-wrap items-center gap-3 mt-2">
             <Badge variant="secondary" className="font-mono text-xs">
               {project.slug}
@@ -245,6 +307,29 @@ export function ProjectDetailPage() {
             </code>
           </div>
         </div>
+
+        {/* Rename project dialog */}
+        <Dialog open={editNameOpen} onOpenChange={setEditNameOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Rename Project</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleEditProjectName} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="editProjectName">Project Name</Label>
+                <Input
+                  id="editProjectName"
+                  value={editNameValue}
+                  onChange={(e) => setEditNameValue(e.target.value)}
+                  required
+                />
+              </div>
+              <Button type="submit" className="w-full">
+                Save
+              </Button>
+            </form>
+          </DialogContent>
+        </Dialog>
 
         {/* Tab Switcher */}
         <div className="flex gap-1 mb-6 bg-muted rounded-lg p-1">
@@ -457,16 +542,84 @@ export function ProjectDetailPage() {
           <>
             {/* Month navigation */}
             <div className="flex items-center justify-between mb-4">
-              <Button variant="ghost" size="icon" onClick={prevMonth}>
-                <ChevronLeft className="h-5 w-5" />
-              </Button>
-              <h2 className="text-lg font-semibold">
-                {formatMonth(sheetMonth)}
-              </h2>
-              <Button variant="ghost" size="icon" onClick={nextMonth}>
-                <ChevronRight className="h-5 w-5" />
+              <div className="flex items-center gap-1">
+                <Button variant="ghost" size="icon" onClick={prevMonth}>
+                  <ChevronLeft className="h-5 w-5" />
+                </Button>
+                <h2 className="text-lg font-semibold">
+                  {formatMonth(sheetMonth)}
+                </h2>
+                <Button variant="ghost" size="icon" onClick={nextMonth}>
+                  <ChevronRight className="h-5 w-5" />
+                </Button>
+              </div>
+              <Button variant="outline" size="sm" onClick={handleCreateShare}>
+                <Share2 className="mr-2 h-4 w-4" />
+                Share
               </Button>
             </div>
+
+            {/* Share timesheet dialog */}
+            <Dialog
+              open={shareDialogOpen}
+              onOpenChange={(open) => {
+                setShareDialogOpen(open);
+                if (open) loadShares();
+              }}
+            >
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Share Timesheet</DialogTitle>
+                </DialogHeader>
+                <p className="text-sm text-muted-foreground">
+                  Anyone with a valid login and this link can view this month's
+                  timesheet.
+                </p>
+                {shareToken && (
+                  <div className="flex gap-2">
+                    <Input
+                      readOnly
+                      value={`${window.location.origin}/shared/${shareToken}`}
+                      className="font-mono text-xs"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={copyShareLink}
+                      className="shrink-0"
+                    >
+                      {shareCopied ? (
+                        <Check className="h-4 w-4" />
+                      ) : (
+                        <Copy className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                )}
+                {shares.length > 0 && (
+                  <div className="mt-4 space-y-2">
+                    <h3 className="text-sm font-medium">Active share links</h3>
+                    {shares.map((s) => (
+                      <div
+                        key={s.id}
+                        className="flex items-center justify-between text-sm bg-muted rounded px-3 py-2"
+                      >
+                        <span className="font-mono text-xs">{s.month}</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10 h-7"
+                          onClick={() => handleRevokeShare(s.id)}
+                          title="Revoke share link"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </DialogContent>
+            </Dialog>
 
             {/* Monthly summary */}
             <Card className="mb-4">
