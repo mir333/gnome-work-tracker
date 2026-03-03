@@ -32,6 +32,7 @@ import {
   shortDayName,
 } from "@/lib/date-utils";
 import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, Share2, Copy, Check, X } from "lucide-react";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 
 interface Project {
   id: string;
@@ -121,6 +122,8 @@ export function ProjectDetailPage() {
     endedAt: "",
     description: "",
   });
+
+  const [deleteItemId, setDeleteItemId] = useState<string | null>(null);
 
   // Edit project name
   const [editNameOpen, setEditNameOpen] = useState(false);
@@ -520,7 +523,7 @@ export function ProjectDetailPage() {
                               variant="ghost"
                               size="sm"
                               className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                              onClick={() => handleDelete(item.id)}
+                              onClick={() => setDeleteItemId(item.id)}
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
@@ -680,6 +683,20 @@ export function ProjectDetailPage() {
             )}
           </>
         )}
+        {/* Delete confirmation dialog */}
+        <ConfirmDialog
+          open={deleteItemId !== null}
+          onOpenChange={(open) => {
+            if (!open) setDeleteItemId(null);
+          }}
+          title="Delete time entry"
+          description="Are you sure you want to delete this time entry? This action cannot be undone."
+          confirmLabel="Delete"
+          onConfirm={() => {
+            if (deleteItemId) handleDelete(deleteItemId);
+            setDeleteItemId(null);
+          }}
+        />
       </div>
     </AppLayout>
   );

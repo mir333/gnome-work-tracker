@@ -14,7 +14,16 @@ export const triggerService = {
     // Close any active work item
     const active = await workItemRepository.findActiveByUser(userId);
     if (active) {
-      await workItemRepository.update(active.id, { endedAt: new Date() });
+      const now = new Date();
+      const durationSecs =
+        (now.getTime() - new Date(active.startedAt).getTime()) / 1000;
+
+      if (durationSecs < 30) {
+        // Auto-delete entries shorter than 30 seconds
+        await workItemRepository.delete(active.id);
+      } else {
+        await workItemRepository.update(active.id, { endedAt: now });
+      }
     }
 
     // Start new work item
@@ -28,7 +37,16 @@ export const triggerService = {
   async stopAll(userId: string) {
     const active = await workItemRepository.findActiveByUser(userId);
     if (active) {
-      await workItemRepository.update(active.id, { endedAt: new Date() });
+      const now = new Date();
+      const durationSecs =
+        (now.getTime() - new Date(active.startedAt).getTime()) / 1000;
+
+      if (durationSecs < 30) {
+        // Auto-delete entries shorter than 30 seconds
+        await workItemRepository.delete(active.id);
+      } else {
+        await workItemRepository.update(active.id, { endedAt: now });
+      }
     }
     return true;
   },

@@ -18,7 +18,8 @@ import {
   formatMonth,
   shortDayName,
 } from "@/lib/date-utils";
-import { Square, Clock, ChevronLeft, ChevronRight, Calendar } from "lucide-react";
+import { Square, Clock, ChevronLeft, ChevronRight, Calendar, Trash2 } from "lucide-react";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import {
   PieChart,
   Pie,
@@ -319,6 +320,7 @@ export function DashboardPage() {
   const [monthItems, setMonthItems] = useState<WorkItemWithProject[]>([]);
   const [activeTab, setActiveTab] = useState<TabKey>("day");
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [deleteItemId, setDeleteItemId] = useState<string | null>(null);
 
   const isToday = isSameDay(selectedDate, new Date());
 
@@ -391,7 +393,20 @@ export function DashboardPage() {
 
   async function stopAll() {
     await api.get("/trigger/session/stop");
-    loadDay(selectedDate);
+    reloadCurrentTab();
+  }
+
+  function reloadCurrentTab() {
+    if (activeTab === "day") loadDay(selectedDate);
+    else if (activeTab === "week") loadWeek(selectedDate);
+    else loadMonth(selectedDate);
+  }
+
+  async function handleDeleteItem() {
+    if (!deleteItemId) return;
+    await api.delete(`/work-items/${deleteItemId}`);
+    setDeleteItemId(null);
+    reloadCurrentTab();
   }
 
   function navigateDate(direction: -1 | 1) {
@@ -622,6 +637,18 @@ export function DashboardPage() {
                           </span>
                         </div>
                       </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteItemId(item.id);
+                        }}
+                        title="Delete entry"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
                     </div>
                   );
                 })}
@@ -802,6 +829,17 @@ export function DashboardPage() {
             </div>
           </>
         )}
+        {/* Delete confirmation dialog */}
+        <ConfirmDialog
+          open={deleteItemId !== null}
+          onOpenChange={(open) => {
+            if (!open) setDeleteItemId(null);
+          }}
+          title="Delete time entry"
+          description="Are you sure you want to delete this time entry? This action cannot be undone."
+          confirmLabel="Delete"
+          onConfirm={handleDeleteItem}
+        />
       </div>
     </AppLayout>
   );
