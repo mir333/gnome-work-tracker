@@ -9,6 +9,7 @@ const mockCreate = mock(() => Promise.resolve(null));
 const mockUpdate = mock(() => Promise.resolve(null));
 const mockDelete = mock(() => Promise.resolve(null));
 const mockFindByApiToken = mock(() => Promise.resolve(null));
+const mockFindById = mock(() => Promise.resolve(null));
 
 mock.module("../repositories/project.repository", () => ({
   projectRepository: {
@@ -22,6 +23,7 @@ mock.module("../repositories/work-item.repository", () => ({
     create: mockCreate,
     update: mockUpdate,
     delete: mockDelete,
+    findById: mockFindById,
   },
 }));
 
@@ -44,6 +46,7 @@ beforeEach(() => {
   mockCreate.mockReset();
   mockUpdate.mockReset();
   mockDelete.mockReset();
+  mockFindById.mockReset();
 });
 
 describe("triggerService.startWork", () => {
@@ -150,5 +153,59 @@ describe("triggerService.startWork", () => {
 
     expect(result).toBeNull();
     expect(mockCreate).not.toHaveBeenCalled();
+  });
+});
+
+describe("triggerService.updateWorkItem", () => {
+  test("updates startedAt for a work item owned by the user", async () => {
+    const workItem = {
+      id: "wi-1",
+      projectId: PROJECT_ID,
+      userId: USER_ID,
+      startedAt: new Date("2026-03-05T10:00:00"),
+      endedAt: null,
+    };
+
+    mockFindById.mockResolvedValue(workItem);
+    mockUpdate.mockResolvedValue({
+      ...workItem,
+      startedAt: new Date("2026-03-05T09:30:00"),
+    });
+
+    const result = await triggerService.updateWorkItem(USER_ID, "wi-1", {
+      startedAt: "2026-03-05T09:30:00",
+    });
+
+    expect(mockUpdate).toHaveBeenCalledTimes(1);
+    expect(result).not.toBeNull();
+    expect(result!.startedAt).toEqual(new Date("2026-03-05T09:30:00"));
+  });
+
+  test("returns null when work item does not belong to user", async () => {
+    mockFindById.mockResolvedValue({
+      id: "wi-1",
+      projectId: PROJECT_ID,
+      userId: "other-user",
+      startedAt: new Date(),
+      endedAt: null,
+    });
+
+    const result = await triggerService.updateWorkItem(USER_ID, "wi-1", {
+      startedAt: "2026-03-05T09:30:00",
+    });
+
+    expect(result).toBeNull();
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  test("returns null when work item not found", async () => {
+    mockFindById.mockResolvedValue(null);
+
+    const result = await triggerService.updateWorkItem(USER_ID, "nonexistent", {
+      startedAt: "2026-03-05T09:30:00",
+    });
+
+    expect(result).toBeNull();
+    expect(mockUpdate).not.toHaveBeenCalled();
   });
 });
