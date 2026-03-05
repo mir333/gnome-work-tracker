@@ -107,6 +107,7 @@ const WorkTrackerBar = GObject.registerClass(
       this._extension = extension;
       this._settings = extension.getSettings();
       this._buttons = [];
+      this._activeWorkItem = null;
       this._buildButtons();
       this._restoreActiveState();
     }
@@ -143,15 +144,23 @@ const WorkTrackerBar = GObject.registerClass(
     }
 
     _onProjectClicked(slotIndex, slug) {
+      // If this slot is already active, show the edit popup
+      const currentActive = this._settings.get_int("active-slot");
+      if (currentActive === slotIndex && this._activeWorkItem) {
+        this._showEditPopup(slotIndex);
+        return;
+      }
+
       const apiToken = this._settings.get_string("api-token");
       const serverUrl = this._settings.get_string("server-url");
       const url = `${serverUrl}/api/trigger/${apiToken}/${slug}`;
 
-      httpGet(url, (err) => {
+      httpGet(url, (err, data) => {
         if (err) {
           console.error(`[work-tracker] Trigger failed: ${err.message}`);
           return;
         }
+        this._activeWorkItem = data?.workItem ?? null;
         this._setActiveSlot(slotIndex);
         this._settings.set_int("active-slot", slotIndex);
       });
@@ -167,6 +176,7 @@ const WorkTrackerBar = GObject.registerClass(
           console.error(`[work-tracker] Stop failed: ${err.message}`);
           return;
         }
+        this._activeWorkItem = null;
         this._setActiveSlot(-1);
         this._settings.set_int("active-slot", -1);
       });
