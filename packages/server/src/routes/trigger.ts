@@ -39,4 +39,19 @@ trigger.get("/:apiToken/:slug", async (c) => {
   return c.json({ ok: true, workItem });
 });
 
+// Token-based work item update (for GNOME extension)
+trigger.put("/:apiToken/work-items/:id", async (c) => {
+  const profile = await triggerService.resolveToken(c.req.param("apiToken"));
+  if (!profile) return c.json({ error: "Invalid token" }, 401);
+
+  const data = await c.req.json();
+  const workItem = await triggerService.updateWorkItem(
+    profile.userId,
+    c.req.param("id"),
+    data
+  );
+  if (!workItem) return c.json({ error: "Work item not found" }, 404);
+  return c.json({ ok: true, workItem });
+});
+
 export { trigger };
