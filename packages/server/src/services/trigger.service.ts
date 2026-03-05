@@ -55,4 +55,17 @@ export const triggerService = {
     }
     return true;
   },
+
+  async updateWorkItem(
+    userId: string,
+    workItemId: string,
+    data: { startedAt?: string }
+  ) {
+    const workItem = await workItemRepository.findById(workItemId);
+    if (!workItem || workItem.userId !== userId) return null;
+
+    return workItemRepository.update(workItemId, {
+      ...(data.startedAt ? { startedAt: new Date(data.startedAt) } : {}),
+    });
+  },
 };

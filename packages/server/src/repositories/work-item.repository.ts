@@ -18,6 +18,10 @@ export const workItemRepository = {
     });
   },
 
+  async findById(id: string) {
+    return prisma.workItem.findUnique({ where: { id } });
+  },
+
   async findActiveByUser(userId: string) {
     return prisma.workItem.findFirst({
       where: { userId, endedAt: null },
