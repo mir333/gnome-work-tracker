@@ -11,8 +11,13 @@ export const triggerService = {
     const project = await projectRepository.findBySlug(slug);
     if (!project || project.userId !== userId) return null;
 
-    // Close any active work item
+    // If already working on this project, return existing work item (idempotent)
     const active = await workItemRepository.findActiveByUser(userId);
+    if (active && active.projectId === project.id) {
+      return active;
+    }
+
+    // Close any active work item (different project)
     if (active) {
       const now = new Date();
       const durationSecs =
