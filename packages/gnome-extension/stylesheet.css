@@ -21,3 +21,33 @@
 .work-tracker-stop {
   color: rgba(246, 97, 81, 0.9);
 }
+
+.work-tracker-popup {
+  margin-top: 4px;
+}
+
+.work-tracker-edit-box {
+  spacing: 8px;
+  padding: 4px 8px;
+}
+
+.work-tracker-edit-label {
+  color: #ccc;
+}
+
+.work-tracker-edit-entry {
+  width: 60px;
+  padding: 2px 6px;
+}
+
+.work-tracker-edit-save {
+  padding: 2px 12px;
+  border-radius: 4px;
+  background-color: rgba(53, 132, 228, 0.8);
+  color: white;
+  font-weight: bold;
+}
+
+.work-tracker-edit-save:hover {
+  background-color: rgba(53, 132, 228, 1.0);
+}

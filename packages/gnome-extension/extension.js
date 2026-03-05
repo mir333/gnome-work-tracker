@@ -7,6 +7,7 @@ import St from "gi://St";
 import { Extension } from "resource:///org/gnome/shell/extensions/extension.js";
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import * as LoginManager from "resource:///org/gnome/shell/misc/loginManager.js";
+import * as PopupMenu from "resource:///org/gnome/shell/ui/popupMenu.js";
 
 const _session = new Soup.Session();
 
@@ -108,11 +109,17 @@ const WorkTrackerBar = GObject.registerClass(
       this._settings = extension.getSettings();
       this._buttons = [];
       this._activeWorkItem = null;
+      this._editPopup = null;
       this._buildButtons();
       this._restoreActiveState();
     }
 
     _buildButtons() {
+      if (this._editPopup) {
+        this._editPopup.close();
+        this._editPopup.destroy();
+        this._editPopup = null;
+      }
       this.destroy_all_children();
       this._buttons = [];
 
@@ -179,6 +186,118 @@ const WorkTrackerBar = GObject.registerClass(
         this._activeWorkItem = null;
         this._setActiveSlot(-1);
         this._settings.set_int("active-slot", -1);
+      });
+    }
+
+    _showEditPopup(slotIndex) {
+      // Close any existing popup
+      if (this._editPopup) {
+        this._editPopup.close();
+        this._editPopup.destroy();
+        this._editPopup = null;
+      }
+
+      // Find the button for this slot
+      const entry = this._buttons.find((b) => b.index === slotIndex);
+      if (!entry) return;
+
+      // Format current start time as HH:MM
+      const startedAt = new Date(this._activeWorkItem.startedAt);
+      const hh = String(startedAt.getHours()).padStart(2, "0");
+      const mm = String(startedAt.getMinutes()).padStart(2, "0");
+
+      // Create popup menu anchored to the button
+      const popup = new PopupMenu.PopupMenu(entry.button, 0.0, St.Side.TOP);
+      Main.uiGroup.add_child(popup.actor);
+      popup.actor.add_style_class_name("work-tracker-popup");
+
+      // Create a custom menu item with our edit UI
+      const item = new PopupMenu.PopupBaseMenuItem({ reactive: false });
+
+      const box = new St.BoxLayout({
+        vertical: false,
+        style_class: "work-tracker-edit-box",
+      });
+
+      const label = new St.Label({
+        text: "Started at:",
+        y_align: Clutter.ActorAlign.CENTER,
+        style_class: "work-tracker-edit-label",
+      });
+      box.add_child(label);
+
+      const timeEntry = new St.Entry({
+        text: `${hh}:${mm}`,
+        style_class: "work-tracker-edit-entry",
+        can_focus: true,
+      });
+      box.add_child(timeEntry);
+
+      const saveBtn = new St.Button({
+        label: "Save",
+        style_class: "work-tracker-edit-save",
+        can_focus: true,
+      });
+      saveBtn.connect("clicked", () => {
+        this._saveStartTime(timeEntry.get_text(), popup);
+      });
+      box.add_child(saveBtn);
+
+      item.add_child(box);
+      popup.addMenuItem(item);
+
+      // Open the popup
+      popup.open();
+
+      // Focus the entry after opening
+      GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+        timeEntry.grab_key_focus();
+        return GLib.SOURCE_REMOVE;
+      });
+
+      this._editPopup = popup;
+    }
+
+    _saveStartTime(timeStr, popup) {
+      // Validate HH:MM format
+      const match = timeStr.match(/^(\d{1,2}):(\d{2})$/);
+      if (!match) {
+        console.error(`[work-tracker] Invalid time format: ${timeStr}`);
+        return;
+      }
+
+      const hours = parseInt(match[1], 10);
+      const minutes = parseInt(match[2], 10);
+      if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+        console.error(`[work-tracker] Invalid time: ${timeStr}`);
+        return;
+      }
+
+      // Build ISO datetime using today's date
+      const now = new Date();
+      const newStart = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate(),
+        hours,
+        minutes,
+        0
+      );
+
+      const apiToken = this._settings.get_string("api-token");
+      const serverUrl = this._settings.get_string("server-url");
+      const workItemId = this._activeWorkItem.id;
+      const url = `${serverUrl}/api/trigger/${apiToken}/work-items/${workItemId}`;
+
+      httpPut(url, { startedAt: newStart.toISOString() }, (err, data) => {
+        if (err) {
+          console.error(`[work-tracker] Update failed: ${err.message}`);
+          return;
+        }
+        this._activeWorkItem = data?.workItem ?? this._activeWorkItem;
+        popup.close();
+        popup.destroy();
+        this._editPopup = null;
       });
     }
 
