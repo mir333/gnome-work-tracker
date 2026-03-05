@@ -41,6 +41,40 @@ function httpGet(url, callback) {
   );
 }
 
+function httpPut(url, body, callback) {
+  console.log(`[work-tracker] PUT ${url}`);
+  const message = Soup.Message.new("PUT", url);
+  if (!message) {
+    console.error(`[work-tracker] Invalid URL: ${url}`);
+    callback(new Error(`Invalid URL: ${url}`), null);
+    return;
+  }
+  const bodyStr = JSON.stringify(body);
+  const bytes = GLib.Bytes.new(new TextEncoder().encode(bodyStr));
+  message.set_request_body_from_bytes("application/json", bytes);
+  _session.send_and_read_async(
+    message,
+    GLib.PRIORITY_DEFAULT,
+    null,
+    (session, result) => {
+      try {
+        const responseBytes = session.send_and_read_finish(result);
+        const statusCode = message.get_status();
+        const responseBody = new TextDecoder().decode(responseBytes.get_data());
+        console.log(`[work-tracker] Response ${statusCode}: ${responseBody}`);
+        if (statusCode !== Soup.Status.OK) {
+          callback(new Error(`HTTP ${statusCode}: ${responseBody}`), null);
+          return;
+        }
+        callback(null, JSON.parse(responseBody));
+      } catch (e) {
+        console.error(`[work-tracker] Request error: ${e.message}`);
+        callback(e, null);
+      }
+    }
+  );
+}
+
 // Project button
 const ProjectButton = GObject.registerClass(
   class ProjectButton extends St.Button {
