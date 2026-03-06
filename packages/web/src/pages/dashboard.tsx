@@ -145,9 +145,11 @@ function getColorIndex(
 function ProjectSummaryCards({
   items,
   colorMap,
+  hoursPerManDay,
 }: {
   items: WorkItemWithProject[];
   colorMap: Record<string, number>;
+  hoursPerManDay: number;
 }) {
   const byProject = aggregateByProject(items);
 
@@ -157,6 +159,7 @@ function ProjectSummaryCards({
     <div className="grid grid-cols-2 gap-3 mb-6">
       {byProject.map(({ project, totalMins }) => {
         const ci = getColorIndex(project.id, colorMap);
+        const manDays = (totalMins / 60 / hoursPerManDay).toFixed(1);
         return (
           <Card
             key={project.id}
@@ -166,7 +169,12 @@ function ProjectSummaryCards({
               <div className="text-sm font-medium text-muted-foreground">
                 {project.name}
               </div>
-              <div className="text-2xl font-bold mt-1">{formatHM(totalMins)}</div>
+              <div className="text-2xl font-bold mt-1">
+                {formatHM(totalMins)}{" "}
+                <span className="text-muted-foreground font-normal text-sm">
+                  ({manDays} MD)
+                </span>
+              </div>
             </CardContent>
           </Card>
         );
@@ -321,6 +329,7 @@ export function DashboardPage() {
   const [activeTab, setActiveTab] = useState<TabKey>("day");
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [deleteItemId, setDeleteItemId] = useState<string | null>(null);
+  const [hoursPerManDay, setHoursPerManDay] = useState(8);
 
   const isToday = isSameDay(selectedDate, new Date());
 
@@ -373,10 +382,16 @@ export function DashboardPage() {
     setMonthItems(st.items ?? []);
   }, []);
 
-  // Load slots once
+  const loadSettings = useCallback(async () => {
+    const data = await api.get("/profile/settings");
+    setHoursPerManDay(data.hoursPerManDay);
+  }, []);
+
+  // Load slots and settings once
   useEffect(() => {
     loadSlots();
-  }, [loadSlots]);
+    loadSettings();
+  }, [loadSlots, loadSettings]);
 
   // Load data when tab or date changes
   useEffect(() => {
@@ -592,7 +607,7 @@ export function DashboardPage() {
             )}
 
             {/* Per-project aggregation cards */}
-            <ProjectSummaryCards items={dayItems} colorMap={colorMap} />
+            <ProjectSummaryCards items={dayItems} colorMap={colorMap} hoursPerManDay={hoursPerManDay} />
 
             {/* Donut chart */}
             <ProjectDonutChart items={dayItems} colorMap={colorMap} />
@@ -668,7 +683,7 @@ export function DashboardPage() {
         {activeTab === "week" && (
           <>
             {/* Per-project aggregation cards */}
-            <ProjectSummaryCards items={weekItems} colorMap={colorMap} />
+            <ProjectSummaryCards items={weekItems} colorMap={colorMap} hoursPerManDay={hoursPerManDay} />
 
             {/* Stacked bar chart */}
             <WeekBarChart
@@ -752,7 +767,7 @@ export function DashboardPage() {
         {activeTab === "month" && (
           <>
             {/* Per-project aggregation cards */}
-            <ProjectSummaryCards items={monthItems} colorMap={colorMap} />
+            <ProjectSummaryCards items={monthItems} colorMap={colorMap} hoursPerManDay={hoursPerManDay} />
 
             {/* Donut chart */}
             <ProjectDonutChart items={monthItems} colorMap={colorMap} />
