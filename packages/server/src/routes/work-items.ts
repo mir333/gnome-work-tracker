@@ -52,4 +52,17 @@ workItems.delete("/work-items/:id", async (c) => {
   return c.json({ ok: true });
 });
 
+workItems.post("/work-items/active/description", async (c) => {
+  const userId = c.get("userId");
+  const { description } = await c.req.json();
+  if (!description || !description.trim()) {
+    return c.json({ error: "Description is required" }, 400);
+  }
+  const workItem = await workItemService.appendDescription(userId, description.trim());
+  if (!workItem) {
+    return c.json({ error: "No active work item" }, 400);
+  }
+  return c.json({ ok: true, workItem });
+});
+
 export { workItems };
