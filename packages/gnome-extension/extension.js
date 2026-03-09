@@ -76,6 +76,40 @@ function httpPut(url, body, callback) {
   );
 }
 
+function httpPost(url, body, callback) {
+  console.log(`[work-tracker] POST ${url}`);
+  const message = Soup.Message.new("POST", url);
+  if (!message) {
+    console.error(`[work-tracker] Invalid URL: ${url}`);
+    callback(new Error(`Invalid URL: ${url}`), null);
+    return;
+  }
+  const bodyStr = JSON.stringify(body);
+  const bytes = GLib.Bytes.new(new TextEncoder().encode(bodyStr));
+  message.set_request_body_from_bytes("application/json", bytes);
+  _session.send_and_read_async(
+    message,
+    GLib.PRIORITY_DEFAULT,
+    null,
+    (session, result) => {
+      try {
+        const responseBytes = session.send_and_read_finish(result);
+        const statusCode = message.get_status();
+        const responseBody = new TextDecoder().decode(responseBytes.get_data());
+        console.log(`[work-tracker] Response ${statusCode}: ${responseBody}`);
+        if (statusCode !== Soup.Status.OK) {
+          callback(new Error(`HTTP ${statusCode}: ${responseBody}`), null);
+          return;
+        }
+        callback(null, JSON.parse(responseBody));
+      } catch (e) {
+        console.error(`[work-tracker] Request error: ${e.message}`);
+        callback(e, null);
+      }
+    }
+  );
+}
+
 // Project button
 const ProjectButton = GObject.registerClass(
   class ProjectButton extends St.Button {
@@ -140,8 +174,19 @@ const WorkTrackerBar = GObject.registerClass(
         this._buttons.push({ index: i, slug, button: btn });
       }
 
+      // Note button (pencil icon ✎)
+      const noteBtn = new St.Button({
+        label: "\u270E",
+        style_class: "work-tracker-button work-tracker-note panel-button",
+        can_focus: true,
+        track_hover: true,
+      });
+      noteBtn.connect("clicked", () => this._onNoteClicked());
+      this.add_child(noteBtn);
+
+      // Stop button (square icon ■)
       const stopBtn = new St.Button({
-        label: "Stop",
+        label: "\u25A0",
         style_class: "work-tracker-button work-tracker-stop panel-button",
         can_focus: true,
         track_hover: true,
@@ -173,6 +218,15 @@ const WorkTrackerBar = GObject.registerClass(
       });
     }
 
+    _onNoteClicked() {
+      const currentActive = this._settings.get_int("active-slot");
+      if (currentActive < 0 || !this._activeWorkItem) {
+        console.log("[work-tracker] No active work item, cannot add note");
+        return;
+      }
+      this._showNotePopup();
+    }
+
     _onStopClicked() {
       const apiToken = this._settings.get_string("api-token");
       const serverUrl = this._settings.get_string("server-url");
@@ -186,6 +240,92 @@ const WorkTrackerBar = GObject.registerClass(
         this._activeWorkItem = null;
         this._setActiveSlot(-1);
         this._settings.set_int("active-slot", -1);
+      });
+    }
+
+    _showNotePopup() {
+      // Close any existing popup
+      if (this._editPopup) {
+        this._editPopup.close();
+        this._editPopup.destroy();
+        this._editPopup = null;
+      }
+
+      // Find any active button to anchor the popup
+      const activeSlot = this._settings.get_int("active-slot");
+      const entry = this._buttons.find((b) => b.index === activeSlot);
+      if (!entry) return;
+
+      // Create popup menu anchored to the button
+      const popup = new PopupMenu.PopupMenu(entry.button, 0.0, St.Side.TOP);
+      Main.uiGroup.add_child(popup.actor);
+      popup.actor.add_style_class_name("work-tracker-popup");
+
+      // Create a custom menu item with note UI
+      const item = new PopupMenu.PopupBaseMenuItem({ reactive: false });
+
+      const box = new St.BoxLayout({
+        vertical: false,
+        style_class: "work-tracker-edit-box",
+      });
+
+      const label = new St.Label({
+        text: "Note:",
+        y_align: Clutter.ActorAlign.CENTER,
+        style_class: "work-tracker-edit-label",
+      });
+      box.add_child(label);
+
+      const noteEntry = new St.Entry({
+        hint_text: "What are you working on?",
+        style_class: "work-tracker-note-entry",
+        can_focus: true,
+      });
+      box.add_child(noteEntry);
+
+      const saveBtn = new St.Button({
+        label: "Add",
+        style_class: "work-tracker-edit-save",
+        can_focus: true,
+      });
+      saveBtn.connect("clicked", () => {
+        this._saveNote(noteEntry.get_text(), popup);
+      });
+      box.add_child(saveBtn);
+
+      item.add_child(box);
+      popup.addMenuItem(item);
+
+      // Open the popup
+      popup.open();
+
+      // Focus the entry after opening
+      GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+        noteEntry.grab_key_focus();
+        return GLib.SOURCE_REMOVE;
+      });
+
+      this._editPopup = popup;
+    }
+
+    _saveNote(text, popup) {
+      if (!text || !text.trim()) {
+        console.log("[work-tracker] Empty note, ignoring");
+        return;
+      }
+
+      const apiToken = this._settings.get_string("api-token");
+      const serverUrl = this._settings.get_string("server-url");
+      const url = `${serverUrl}/api/trigger/${apiToken}/active/description`;
+
+      httpPost(url, { description: text.trim() }, (err, _data) => {
+        if (err) {
+          console.error(`[work-tracker] Add note failed: ${err.message}`);
+          return;
+        }
+        popup.close();
+        popup.destroy();
+        this._editPopup = null;
       });
     }
 
