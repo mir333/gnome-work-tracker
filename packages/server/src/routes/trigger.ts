@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { requireAuth } from "../middleware/auth";
 import { triggerService } from "../services/trigger.service";
+import { workItemService } from "../services/work-item.service";
 
 const trigger = new Hono();
 
@@ -51,6 +52,23 @@ trigger.put("/:apiToken/work-items/:id", async (c) => {
     data
   );
   if (!workItem) return c.json({ error: "Work item not found" }, 404);
+  return c.json({ ok: true, workItem });
+});
+
+// Token-based append description to active work item (for GNOME extension)
+trigger.post("/:apiToken/active/description", async (c) => {
+  const profile = await triggerService.resolveToken(c.req.param("apiToken"));
+  if (!profile) return c.json({ error: "Invalid token" }, 401);
+
+  const { description } = await c.req.json();
+  if (!description || !description.trim()) {
+    return c.json({ error: "Description is required" }, 400);
+  }
+
+  const workItem = await workItemService.appendDescription(profile.userId, description.trim());
+  if (!workItem) {
+    return c.json({ error: "No active work item" }, 400);
+  }
   return c.json({ ok: true, workItem });
 });
 
