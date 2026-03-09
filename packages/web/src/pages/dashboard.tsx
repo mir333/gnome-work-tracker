@@ -412,6 +412,9 @@ export function DashboardPage() {
 
   async function stopAll() {
     await api.get("/trigger/session/stop");
+    setNoteOpen(false);
+    setNoteText("");
+    setNoteError("");
     reloadCurrentTab();
   }
 

@@ -67,6 +67,9 @@ export function LauncherPage() {
 
   async function stopAll() {
     await api.get("/trigger/session/stop");
+    setNoteOpen(false);
+    setNoteText("");
+    setNoteError("");
     const st = await api.get("/status");
     setStatus(st);
   }
