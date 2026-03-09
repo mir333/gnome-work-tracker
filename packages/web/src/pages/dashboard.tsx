@@ -330,6 +330,10 @@ export function DashboardPage() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [deleteItemId, setDeleteItemId] = useState<string | null>(null);
   const [hoursPerManDay, setHoursPerManDay] = useState(8);
+  const [noteOpen, setNoteOpen] = useState(false);
+  const [noteText, setNoteText] = useState("");
+  const [noteSaving, setNoteSaving] = useState(false);
+  const [noteError, setNoteError] = useState("");
 
   const isToday = isSameDay(selectedDate, new Date());
 
@@ -422,6 +426,21 @@ export function DashboardPage() {
     await api.delete(`/work-items/${deleteItemId}`);
     setDeleteItemId(null);
     reloadCurrentTab();
+  }
+
+  async function addNote() {
+    if (!noteText.trim()) return;
+    setNoteSaving(true);
+    setNoteError("");
+    try {
+      await api.post("/work-items/active/description", { description: noteText.trim() });
+      setNoteText("");
+      setNoteOpen(false);
+    } catch (e: any) {
+      setNoteError(e.message || "Failed to add note");
+    } finally {
+      setNoteSaving(false);
+    }
   }
 
   function navigateDate(direction: -1 | 1) {
@@ -593,16 +612,51 @@ export function DashboardPage() {
                   </Card>
                 )}
 
-                {/* Stop */}
-                <Button
-                  variant="destructive"
-                  className="w-full mb-6"
-                  onClick={stopAll}
-                  disabled={!active}
-                >
-                  <Square className="mr-2 h-4 w-4" />
-                  Stop Tracking
-                </Button>
+                {/* Stop + Add Note */}
+                <div className="mb-6 space-y-2">
+                  <Button
+                    variant="destructive"
+                    className="w-full"
+                    onClick={stopAll}
+                    disabled={!active}
+                  >
+                    <Square className="mr-2 h-4 w-4" />
+                    Stop Tracking
+                  </Button>
+
+                  {active && (
+                    <>
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => { setNoteOpen(!noteOpen); setNoteError(""); }}
+                      >
+                        Add Note
+                      </Button>
+                      {noteOpen && (
+                        <div className="space-y-2">
+                          <textarea
+                            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+                            rows={3}
+                            placeholder="What are you working on?"
+                            value={noteText}
+                            onChange={(e) => setNoteText(e.target.value)}
+                          />
+                          {noteError && (
+                            <p className="text-sm text-destructive">{noteError}</p>
+                          )}
+                          <Button
+                            size="sm"
+                            onClick={addNote}
+                            disabled={!noteText.trim() || noteSaving}
+                          >
+                            {noteSaving ? "Saving..." : "Save"}
+                          </Button>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
               </>
             )}
 
