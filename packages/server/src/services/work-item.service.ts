@@ -80,4 +80,15 @@ export const workItemService = {
   async delete(id: string) {
     return workItemRepository.delete(id);
   },
+
+  async appendDescription(userId: string, description: string) {
+    const active = await workItemRepository.findActiveByUser(userId);
+    if (!active) return null;
+
+    const newDescription = active.description
+      ? active.description + "\n" + description
+      : description;
+
+    return workItemRepository.update(active.id, { description: newDescription });
+  },
 };
