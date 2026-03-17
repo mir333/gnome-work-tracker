@@ -281,6 +281,13 @@ const WorkTrackerBar = GObject.registerClass(
         style_class: "work-tracker-note-entry",
         can_focus: true,
       });
+      noteEntry.clutter_text.connect("key-press-event", (_actor, event) => {
+        if (event.get_key_symbol() === Clutter.KEY_Return || event.get_key_symbol() === Clutter.KEY_KP_Enter) {
+          this._saveNote(noteEntry.get_text(), popup);
+          return Clutter.EVENT_STOP;
+        }
+        return Clutter.EVENT_PROPAGATE;
+      });
       box.add_child(noteEntry);
 
       const saveBtn = new St.Button({
