@@ -56,6 +56,25 @@ function getInitials(name?: string | null): string {
     .slice(0, 2);
 }
 
+/**
+ * Opens the Launcher page.
+ * If the PWA is installed it tries to hand off to the standalone app,
+ * otherwise it opens /launcher in a small popup window.
+ */
+function openLauncher() {
+  const launcherUrl = `${window.location.origin}/launcher`;
+  const width = 480;
+  const height = 520;
+  const left = Math.round(window.screenX + (window.outerWidth - width) / 2);
+  const top = Math.round(window.screenY + (window.outerHeight - height) / 2);
+
+  window.open(
+    launcherUrl,
+    "work-tracker-launcher",
+    `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`,
+  );
+}
+
 export function AppLayout({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
   const navigate = useNavigate();
@@ -80,15 +99,20 @@ export function AppLayout({ children }: { children: ReactNode }) {
           >
             Projects
           </NavLink>
-          <NavLink
-            to="/launcher"
-            active={pathname === "/launcher"}
-            icon={Rocket}
-          >
-            Launcher
-          </NavLink>
 
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-1">
+            {/* Launcher — opens in a new window / PWA */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 text-muted-foreground hover:text-foreground"
+              onClick={openLauncher}
+              title="Open Launcher"
+            >
+              <Rocket className="h-4 w-4" />
+            </Button>
+
+            {/* Profile dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button

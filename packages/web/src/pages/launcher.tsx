@@ -90,32 +90,32 @@ export function LauncherPage() {
   }
 
   return (
-    <div className="min-h-screen bg-muted/40 flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-sm">
+    <div className="min-h-screen bg-muted/40 flex flex-col items-center justify-center p-3 sm:p-4">
+      <div className="w-full max-w-lg">
         {/* Status */}
-        <div className="text-center mb-6">
+        <div className="text-center mb-4 sm:mb-6">
           {status.active ? (
-            <Badge variant="default" className="text-sm py-1.5 px-4">
+            <Badge variant="default" className="text-xs sm:text-sm py-1 sm:py-1.5 px-3 sm:px-4">
               <span className="inline-block w-2 h-2 rounded-full bg-green-400 mr-2 animate-pulse" />
               Working on {status.active.project.name}
             </Badge>
           ) : (
-            <Badge variant="secondary" className="text-sm py-1.5 px-4">
+            <Badge variant="secondary" className="text-xs sm:text-sm py-1 sm:py-1.5 px-3 sm:px-4">
               Not tracking
             </Badge>
           )}
         </div>
 
-        {/* Project Buttons */}
+        {/* Project Buttons — responsive grid: 1 col on tiny, 2 on small, 3 on wider */}
         {slots.length > 0 ? (
-          <div className="grid grid-cols-3 gap-3 mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3 mb-3 sm:mb-4">
             {slots.map((s, i) => {
               const isActive = status.active?.project.id === s.project.id;
               return (
                 <Button
                   key={s.slot}
                   onClick={() => triggerProject(s.project.slug)}
-                  className={`h-16 text-base font-medium transition-all ${
+                  className={`h-12 sm:h-14 md:h-16 text-sm sm:text-base font-medium transition-all w-full ${
                     isActive
                       ? SLOT_COLORS[i % SLOT_COLORS.length] +
                         " text-white shadow-md scale-[1.02]"
@@ -123,7 +123,7 @@ export function LauncherPage() {
                   }`}
                   variant={isActive ? "default" : "outline"}
                 >
-                  {s.project.name}
+                  <span className="truncate">{s.project.name}</span>
                 </Button>
               );
             })}
@@ -135,14 +135,14 @@ export function LauncherPage() {
         )}
 
         {/* Stop + Add Note */}
-        <div className="mb-8 space-y-2">
+        <div className="mb-6 sm:mb-8 space-y-2">
           <Button
             variant="destructive"
-            className="w-full"
+            className="w-full h-10 sm:h-11 text-sm sm:text-base"
             onClick={stopAll}
             disabled={!status.active}
           >
-            <Square className="mr-2 h-4 w-4" />
+            <Square className="mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />
             Stop Tracking
           </Button>
 
@@ -150,7 +150,7 @@ export function LauncherPage() {
             <>
               <Button
                 variant="outline"
-                className="w-full"
+                className="w-full h-10 sm:h-11 text-sm sm:text-base"
                 onClick={() => { setNoteOpen(!noteOpen); setNoteError(""); }}
               >
                 Add Note

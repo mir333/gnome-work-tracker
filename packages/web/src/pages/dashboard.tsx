@@ -1,5 +1,4 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/app-layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -18,7 +17,7 @@ import {
   formatMonth,
   shortDayName,
 } from "@/lib/date-utils";
-import { Square, Clock, ChevronLeft, ChevronRight, Calendar, Trash2, Pencil } from "lucide-react";
+import { Clock, ChevronLeft, ChevronRight, Calendar, Trash2, Pencil } from "lucide-react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import {
   Dialog,
@@ -329,7 +328,6 @@ function WeekBarChart({
 // ---------------------------------------------------------------------------
 
 export function DashboardPage() {
-  const navigate = useNavigate();
   const [slots, setSlots] = useState<DashboardSlot[]>([]);
   const [active, setActive] = useState<WorkItemWithProject | null>(null);
   const [dayItems, setDayItems] = useState<WorkItemWithProject[]>([]);
@@ -339,11 +337,6 @@ export function DashboardPage() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [deleteItemId, setDeleteItemId] = useState<string | null>(null);
   const [hoursPerManDay, setHoursPerManDay] = useState(8);
-  const [noteOpen, setNoteOpen] = useState(false);
-  const [noteText, setNoteText] = useState("");
-  const [noteSaving, setNoteSaving] = useState(false);
-  const [noteError, setNoteError] = useState("");
-
   // Edit entry state
   const [editItem, setEditItem] = useState<WorkItemWithProject | null>(null);
   const [editForm, setEditForm] = useState({
@@ -423,19 +416,6 @@ export function DashboardPage() {
   }, [activeTab, selectedDate, loadDay, loadWeek, loadMonth]);
 
   // ---- Actions ----
-  async function triggerProject(slug: string) {
-    await api.get(`/trigger/session/${slug}`);
-    loadDay(selectedDate);
-  }
-
-  async function stopAll() {
-    await api.get("/trigger/session/stop");
-    setNoteOpen(false);
-    setNoteText("");
-    setNoteError("");
-    reloadCurrentTab();
-  }
-
   function reloadCurrentTab() {
     if (activeTab === "day") loadDay(selectedDate);
     else if (activeTab === "week") loadWeek(selectedDate);
@@ -447,21 +427,6 @@ export function DashboardPage() {
     await api.delete(`/work-items/${deleteItemId}`);
     setDeleteItemId(null);
     reloadCurrentTab();
-  }
-
-  async function addNote() {
-    if (!noteText.trim()) return;
-    setNoteSaving(true);
-    setNoteError("");
-    try {
-      await api.post("/work-items/active/description", { description: noteText.trim() });
-      setNoteText("");
-      setNoteOpen(false);
-    } catch (e: any) {
-      setNoteError(e.message || "Failed to add note");
-    } finally {
-      setNoteSaving(false);
-    }
   }
 
   function toLocalDatetime(iso: string): string {
@@ -635,87 +600,6 @@ export function DashboardPage() {
         {/* ================================================================ */}
         {activeTab === "day" && (
           <>
-            {/* Project Buttons (only when viewing today) */}
-            {isToday && (
-              <>
-                {slots.length > 0 ? (
-                  <div className="grid grid-cols-3 gap-3 mb-4">
-                    {slots.map((s, i) => {
-                      const isActive = active?.project.id === s.project.id;
-                      return (
-                        <Button
-                          key={s.slot}
-                          onClick={() => triggerProject(s.project.slug)}
-                          className={`h-16 text-base font-medium transition-all ${
-                            isActive
-                              ? SLOT_COLORS[i % SLOT_COLORS.length] +
-                                " text-white shadow-md scale-[1.02]"
-                              : "bg-card text-card-foreground border border-border hover:border-foreground/20"
-                          }`}
-                          variant={isActive ? "default" : "outline"}
-                        >
-                          {s.project.name}
-                        </Button>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <Card className="mb-4">
-                    <CardContent className="py-8 text-center text-muted-foreground text-sm">
-                      No projects on dashboard. Go to Projects and click "Add to
-                      Dashboard".
-                    </CardContent>
-                  </Card>
-                )}
-
-                {/* Stop + Add Note */}
-                <div className="mb-6 space-y-2">
-                  <Button
-                    variant="destructive"
-                    className="w-full"
-                    onClick={stopAll}
-                    disabled={!active}
-                  >
-                    <Square className="mr-2 h-4 w-4" />
-                    Stop Tracking
-                  </Button>
-
-                  {active && (
-                    <>
-                      <Button
-                        variant="outline"
-                        className="w-full"
-                        onClick={() => { setNoteOpen(!noteOpen); setNoteError(""); }}
-                      >
-                        Add Note
-                      </Button>
-                      {noteOpen && (
-                        <div className="space-y-2">
-                          <textarea
-                            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
-                            rows={3}
-                            placeholder="What are you working on?"
-                            value={noteText}
-                            onChange={(e) => setNoteText(e.target.value)}
-                          />
-                          {noteError && (
-                            <p className="text-sm text-destructive">{noteError}</p>
-                          )}
-                          <Button
-                            size="sm"
-                            onClick={addNote}
-                            disabled={!noteText.trim() || noteSaving}
-                          >
-                            {noteSaving ? "Saving..." : "Save"}
-                          </Button>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              </>
-            )}
-
             {/* Per-project aggregation cards */}
             <ProjectSummaryCards items={dayItems} colorMap={colorMap} hoursPerManDay={hoursPerManDay} />
 
@@ -746,9 +630,7 @@ export function DashboardPage() {
                       </span>
                       <div
                         className={`flex-1 rounded-md px-3 py-2 text-sm cursor-pointer transition-all hover:opacity-80 border-l-4 bg-card ${SLOT_BORDER_COLORS[colorIdx]}`}
-                        onClick={() =>
-                          navigate(`/projects/${item.project.id}`)
-                        }
+                        onClick={() => openEdit(item)}
                       >
                         <div className="flex items-center justify-between">
                           <span className="font-medium">
@@ -761,6 +643,11 @@ export function DashboardPage() {
                             )}
                           </span>
                         </div>
+                        {item.description && (
+                          <p className="text-xs text-muted-foreground mt-1 truncate">
+                            {item.description}
+                          </p>
+                        )}
                       </div>
                       <Button
                         variant="ghost"
