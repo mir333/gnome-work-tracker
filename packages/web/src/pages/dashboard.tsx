@@ -18,8 +18,16 @@ import {
   formatMonth,
   shortDayName,
 } from "@/lib/date-utils";
-import { Square, Clock, ChevronLeft, ChevronRight, Calendar, Trash2 } from "lucide-react";
+import { Square, Clock, ChevronLeft, ChevronRight, Calendar, Trash2, Pencil } from "lucide-react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   PieChart,
   Pie,
@@ -53,6 +61,7 @@ interface WorkItemWithProject {
   id: string;
   startedAt: string;
   endedAt: string | null;
+  description: string | null;
   project: { id: string; name: string; slug: string };
 }
 
@@ -335,6 +344,15 @@ export function DashboardPage() {
   const [noteSaving, setNoteSaving] = useState(false);
   const [noteError, setNoteError] = useState("");
 
+  // Edit entry state
+  const [editItem, setEditItem] = useState<WorkItemWithProject | null>(null);
+  const [editForm, setEditForm] = useState({
+    startedAt: "",
+    endedAt: "",
+    description: "",
+  });
+  const [editError, setEditError] = useState<string | null>(null);
+
   const isToday = isSameDay(selectedDate, new Date());
 
   // Build color map from dashboard slots
@@ -443,6 +461,41 @@ export function DashboardPage() {
       setNoteError(e.message || "Failed to add note");
     } finally {
       setNoteSaving(false);
+    }
+  }
+
+  function toLocalDatetime(iso: string): string {
+    const d = new Date(iso);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  function openEdit(item: WorkItemWithProject) {
+    setEditError(null);
+    setEditItem(item);
+    setEditForm({
+      startedAt: toLocalDatetime(item.startedAt),
+      endedAt: item.endedAt ? toLocalDatetime(item.endedAt) : "",
+      description: item.description || "",
+    });
+  }
+
+  async function handleEditEntry(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editItem) return;
+    setEditError(null);
+    try {
+      await api.put(`/work-items/${editItem.id}`, {
+        startedAt: new Date(editForm.startedAt).toISOString(),
+        endedAt: editForm.endedAt
+          ? new Date(editForm.endedAt).toISOString()
+          : undefined,
+        description: editForm.description,
+      });
+      setEditItem(null);
+      reloadCurrentTab();
+    } catch (err: any) {
+      setEditError(err.message || "Failed to update entry");
     }
   }
 
@@ -712,6 +765,18 @@ export function DashboardPage() {
                       <Button
                         variant="ghost"
                         size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-foreground shrink-0"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openEdit(item);
+                        }}
+                        title="Edit entry"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
                         onClick={(e) => {
                           e.stopPropagation();
@@ -901,6 +966,62 @@ export function DashboardPage() {
             </div>
           </>
         )}
+        {/* Edit entry dialog */}
+        <Dialog
+          open={!!editItem}
+          onOpenChange={(open) => {
+            if (!open) {
+              setEditItem(null);
+              setEditError(null);
+            }
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Work Entry</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleEditEntry} className="space-y-4">
+              <div className="space-y-2">
+                <Label>Start Time</Label>
+                <Input
+                  type="datetime-local"
+                  value={editForm.startedAt}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, startedAt: e.target.value })
+                  }
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>End Time</Label>
+                <Input
+                  type="datetime-local"
+                  value={editForm.endedAt}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, endedAt: e.target.value })
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Description</Label>
+                <Input
+                  value={editForm.description}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, description: e.target.value })
+                  }
+                  placeholder="Optional description"
+                />
+              </div>
+              {editError && (
+                <p className="text-sm text-destructive">{editError}</p>
+              )}
+              <Button type="submit" className="w-full">
+                Save
+              </Button>
+            </form>
+          </DialogContent>
+        </Dialog>
+
         {/* Delete confirmation dialog */}
         <ConfirmDialog
           open={deleteItemId !== null}

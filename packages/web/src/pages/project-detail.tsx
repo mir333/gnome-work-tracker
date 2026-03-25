@@ -124,13 +124,18 @@ export function ProjectDetailPage() {
   });
 
   const [deleteItemId, setDeleteItemId] = useState<string | null>(null);
+  const [addError, setAddError] = useState<string | null>(null);
+
+  // Pagination state
+  const PAGE_SIZE = 20;
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Edit project name
   const [editNameOpen, setEditNameOpen] = useState(false);
   const [editNameValue, setEditNameValue] = useState("");
 
   // Tab state
-  const [activeTab, setActiveTab] = useState<TabKey>("items");
+  const [activeTab, setActiveTab] = useState<TabKey>("timesheet");
 
   // Monthly timesheet state
   const [sheetMonth, setSheetMonth] = useState(() => startOfMonth(new Date()));
@@ -195,6 +200,18 @@ export function ProjectDetailPage() {
     [monthTotalMins, hoursPerManDay]
   );
 
+  // Pagination: items are already sorted newest-first from the API
+  const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+  const paginatedItems = useMemo(
+    () => items.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
+    [items, currentPage]
+  );
+
+  // Reset to page 1 when items change (e.g. after add/delete)
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [items.length]);
+
   async function handleEditProjectName(e: React.FormEvent) {
     e.preventDefault();
     await api.put(`/projects/${id}`, { name: editNameValue });
@@ -204,11 +221,20 @@ export function ProjectDetailPage() {
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
-    await api.post(`/projects/${id}/work-items`, addForm);
-    setAddForm({ startedAt: "", endedAt: "", description: "" });
-    setAddOpen(false);
-    load();
-    if (activeTab === "timesheet") loadTimesheet();
+    setAddError(null);
+    try {
+      await api.post(`/projects/${id}/work-items`, {
+        startedAt: new Date(addForm.startedAt).toISOString(),
+        endedAt: new Date(addForm.endedAt).toISOString(),
+        description: addForm.description,
+      });
+      setAddForm({ startedAt: "", endedAt: "", description: "" });
+      setAddOpen(false);
+      load();
+      if (activeTab === "timesheet") loadTimesheet();
+    } catch (err: any) {
+      setAddError(err.message || "Failed to add entry");
+    }
   }
 
   function openEdit(item: WorkItem) {
@@ -223,14 +249,19 @@ export function ProjectDetailPage() {
   async function handleEdit(e: React.FormEvent) {
     e.preventDefault();
     if (!editItem) return;
-    await api.put(`/work-items/${editItem.id}`, {
-      startedAt: editForm.startedAt,
-      endedAt: editForm.endedAt || undefined,
-      description: editForm.description,
-    });
-    setEditItem(null);
-    load();
-    if (activeTab === "timesheet") loadTimesheet();
+    try {
+      await api.put(`/work-items/${editItem.id}`, {
+        startedAt: new Date(editForm.startedAt).toISOString(),
+        endedAt: editForm.endedAt ? new Date(editForm.endedAt).toISOString() : undefined,
+        description: editForm.description,
+      });
+      setEditItem(null);
+      load();
+      if (activeTab === "timesheet") loadTimesheet();
+    } catch (err: any) {
+      // Show error inline if needed in the future
+      console.error("Failed to update entry:", err.message);
+    }
   }
 
   async function handleDelete(itemId: string) {
@@ -338,8 +369,8 @@ export function ProjectDetailPage() {
         <div className="flex gap-1 mb-6 bg-muted rounded-lg p-1">
           {(
             [
-              { key: "items", label: "Work Items" },
               { key: "timesheet", label: "Monthly Timesheet" },
+              { key: "items", label: "Work Items" },
             ] as const
           ).map((tab) => (
             <button
@@ -364,7 +395,7 @@ export function ProjectDetailPage() {
             {/* Work Items Header */}
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold">Work Items</h2>
-              <Dialog open={addOpen} onOpenChange={setAddOpen}>
+              <Dialog open={addOpen} onOpenChange={(open) => { setAddOpen(open); if (!open) setAddError(null); }}>
                 <DialogTrigger asChild>
                   <Button>
                     <Plus className="mr-2 h-4 w-4" />
@@ -408,6 +439,9 @@ export function ProjectDetailPage() {
                         placeholder="Optional description"
                       />
                     </div>
+                    {addError && (
+                      <p className="text-sm text-destructive">{addError}</p>
+                    )}
                     <Button type="submit" className="w-full">
                       Add
                     </Button>
@@ -487,7 +521,7 @@ export function ProjectDetailPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {items.map((item) => (
+                    {paginatedItems.map((item) => (
                       <TableRow key={item.id}>
                         <TableCell className="text-muted-foreground">
                           {new Date(item.startedAt).toLocaleDateString()}
@@ -534,6 +568,44 @@ export function ProjectDetailPage() {
                   </TableBody>
                 </Table>
               </Card>
+            )}
+
+            {/* Pagination */}
+            {items.length > PAGE_SIZE && (
+              <div className="flex items-center justify-between mt-4">
+                <p className="text-sm text-muted-foreground">
+                  Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, items.length)} of {items.length} entries
+                </p>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    <Button
+                      key={page}
+                      variant={page === currentPage ? "default" : "outline"}
+                      size="sm"
+                      className="min-w-[2rem]"
+                      onClick={() => setCurrentPage(page)}
+                    >
+                      {page}
+                    </Button>
+                  ))}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
             )}
           </>
         )}
