@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useState, useCallback, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/app-layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -22,7 +22,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { api } from "@/lib/api";
-import { Plus, Pencil, Trash2, LayoutDashboard } from "lucide-react";
+import {
+  formatHM,
+  toDateString,
+  startOfMonth,
+  endOfMonth,
+  formatMonth,
+} from "@/lib/date-utils";
+import { Plus, Pencil, Trash2, LayoutDashboard, ChevronLeft, ChevronRight } from "lucide-react";
 
 interface Project {
   id: string;
@@ -37,13 +44,71 @@ interface DashboardSlot {
   project: { id: string };
 }
 
+interface WorkItemWithProject {
+  id: string;
+  startedAt: string;
+  endedAt: string | null;
+  description: string | null;
+  project: { id: string; name: string; slug: string };
+}
+
+// ---------------------------------------------------------------------------
+// Colour palette (shared with dashboard)
+// ---------------------------------------------------------------------------
+
+const SLOT_BORDER_COLORS = [
+  "border-blue-500",
+  "border-green-500",
+  "border-purple-500",
+  "border-orange-500",
+  "border-pink-500",
+  "border-teal-500",
+];
+
+const SLOT_BG_LIGHT = [
+  "bg-blue-50 dark:bg-blue-950/30",
+  "bg-green-50 dark:bg-green-950/30",
+  "bg-purple-50 dark:bg-purple-950/30",
+  "bg-orange-50 dark:bg-orange-950/30",
+  "bg-pink-50 dark:bg-pink-950/30",
+  "bg-teal-50 dark:bg-teal-950/30",
+];
+
+function aggregateByProject(items: WorkItemWithProject[]) {
+  const map = new Map<
+    string,
+    { project: { id: string; name: string; slug: string }; totalMins: number }
+  >();
+  for (const item of items) {
+    const entry = map.get(item.project.id) || {
+      project: item.project,
+      totalMins: 0,
+    };
+    const s = new Date(item.startedAt).getTime();
+    const e = item.endedAt ? new Date(item.endedAt).getTime() : Date.now();
+    entry.totalMins += Math.max(0, Math.floor((e - s) / 60000));
+    map.set(item.project.id, entry);
+  }
+  return Array.from(map.values()).sort((a, b) => b.totalMins - a.totalMins);
+}
+
+// ---------------------------------------------------------------------------
+// Main component
+// ---------------------------------------------------------------------------
+
 export function ProjectsPage() {
+  const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>([]);
   const [dashboardProjectIds, setDashboardProjectIds] = useState<Set<string>>(new Set());
   const [newName, setNewName] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editProject, setEditProject] = useState<Project | null>(null);
   const [editName, setEditName] = useState("");
+
+  // Monthly summary state
+  const [selectedMonth, setSelectedMonth] = useState<Date>(new Date());
+  const [monthItems, setMonthItems] = useState<WorkItemWithProject[]>([]);
+  const [hoursPerManDay, setHoursPerManDay] = useState(8);
 
   async function load() {
     const [data, slots] = await Promise.all([
@@ -54,9 +119,49 @@ export function ProjectsPage() {
     setDashboardProjectIds(new Set(slots.map((s: DashboardSlot) => s.projectId)));
   }
 
+  const loadMonth = useCallback(async (date: Date) => {
+    const ms = startOfMonth(date);
+    const me = endOfMonth(date);
+    const st = await api.get(
+      `/status?from=${toDateString(ms)}&to=${toDateString(me)}`
+    );
+    setMonthItems(st.items ?? []);
+  }, []);
+
+  const loadSettings = useCallback(async () => {
+    const data = await api.get("/profile/settings");
+    setHoursPerManDay(data.hoursPerManDay);
+  }, []);
+
   useEffect(() => {
     load();
+    loadSettings();
   }, []);
+
+  useEffect(() => {
+    loadMonth(selectedMonth);
+  }, [selectedMonth, loadMonth]);
+
+  const byProject = useMemo(() => aggregateByProject(monthItems), [monthItems]);
+
+  const monthTotalMins = useMemo(
+    () => byProject.reduce((sum, p) => sum + p.totalMins, 0),
+    [byProject]
+  );
+
+  const monthLabel = formatMonth(selectedMonth);
+
+  function navigateMonth(direction: -1 | 1) {
+    setSelectedMonth((prev) => {
+      const next = new Date(prev);
+      next.setMonth(next.getMonth() + direction);
+      return next;
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Project CRUD
+  // ---------------------------------------------------------------------------
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -64,6 +169,7 @@ export function ProjectsPage() {
     setNewName("");
     setDialogOpen(false);
     load();
+    loadMonth(selectedMonth);
   }
 
   async function handleEditName(e: React.FormEvent) {
@@ -77,6 +183,7 @@ export function ProjectsPage() {
   async function handleDelete(id: string) {
     await api.delete(`/projects/${id}`);
     load();
+    loadMonth(selectedMonth);
   }
 
   async function toggleDashboard(projectId: string) {
@@ -108,9 +215,94 @@ export function ProjectsPage() {
     load();
   }
 
+  // ---------------------------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------------------------
+
   return (
     <AppLayout>
       <div className="max-w-4xl mx-auto">
+        {/* ================================================================ */}
+        {/* MONTHLY SUMMARY                                                  */}
+        {/* ================================================================ */}
+        <div className="mb-8">
+          {/* Month navigation */}
+          <div className="flex items-center gap-2 mb-4">
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-9 w-9"
+              onClick={() => navigateMonth(-1)}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <h2 className="text-lg font-semibold min-w-[160px] text-center">
+              {monthLabel}
+            </h2>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-9 w-9"
+              onClick={() => navigateMonth(1)}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+
+          {/* Grand total card */}
+          <Card className="mb-4">
+            <div className="px-6 py-4 flex items-center justify-between">
+              <span className="text-sm font-medium text-muted-foreground">
+                Monthly Total
+              </span>
+              <span className="text-lg font-semibold">
+                {formatHM(monthTotalMins)}{" "}
+                <span className="text-muted-foreground font-normal text-sm">
+                  ({(monthTotalMins / 60 / hoursPerManDay).toFixed(1)} MD)
+                </span>
+              </span>
+            </div>
+          </Card>
+
+          {/* Per-project breakdown — clickable cards */}
+          {byProject.length > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {byProject.map(({ project, totalMins }, idx) => {
+                const ci = idx % SLOT_BORDER_COLORS.length;
+                const manDays = (totalMins / 60 / hoursPerManDay).toFixed(1);
+                return (
+                  <Card
+                    key={project.id}
+                    className={`${SLOT_BG_LIGHT[ci]} border-l-4 ${SLOT_BORDER_COLORS[ci]} cursor-pointer transition-all hover:shadow-md hover:scale-[1.02]`}
+                    onClick={() => navigate(`/projects/${project.id}`)}
+                  >
+                    <CardContent className="py-4 px-4">
+                      <div className="text-sm font-medium text-muted-foreground truncate">
+                        {project.name}
+                      </div>
+                      <div className="text-xl font-bold mt-1">
+                        {formatHM(totalMins)}{" "}
+                        <span className="text-muted-foreground font-normal text-xs">
+                          ({manDays} MD)
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+
+          {byProject.length === 0 && (
+            <p className="text-muted-foreground text-sm text-center py-4">
+              No work logged in {monthLabel}
+            </p>
+          )}
+        </div>
+
+        {/* ================================================================ */}
+        {/* PROJECT LIST                                                     */}
+        {/* ================================================================ */}
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Projects</h1>
@@ -169,14 +361,15 @@ export function ProjectsPage() {
                 {projects.map((p) => {
                   const onDashboard = dashboardProjectIds.has(p.id);
                   return (
-                    <TableRow key={p.id}>
+                    <TableRow
+                      key={p.id}
+                      className="cursor-pointer"
+                      onClick={() => navigate(`/projects/${p.id}`)}
+                    >
                       <TableCell>
-                        <Link
-                          to={`/projects/${p.id}`}
-                          className="font-medium hover:underline"
-                        >
+                        <span className="font-medium hover:underline">
                           {p.name}
-                        </Link>
+                        </span>
                       </TableCell>
                       <TableCell>
                         <Badge variant="secondary" className="font-mono text-xs">
@@ -187,7 +380,10 @@ export function ProjectsPage() {
                         {new Date(p.createdAt).toLocaleDateString()}
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center justify-end gap-2">
+                        <div
+                          className="flex items-center justify-end gap-2"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <Button
                             variant={onDashboard ? "default" : "outline"}
                             size="sm"
