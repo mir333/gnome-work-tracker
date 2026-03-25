@@ -119,7 +119,7 @@ export function ProfilePage() {
         name: pkName || undefined,
       });
       if (error) {
-        setPkMsg(error.message || "Failed to register passkey");
+        setPkMsg(String(error.message || "Failed to register passkey"));
       } else {
         setPkMsg("Passkey registered successfully");
         setPkName("");

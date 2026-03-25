@@ -229,7 +229,7 @@ function ProjectDonutChart({
             ))}
           </Pie>
           <Tooltip
-            formatter={(value: number | undefined) => formatHM(value ?? 0)}
+            formatter={(value: unknown) => formatHM(Number(value) || 0)}
             contentStyle={{
               borderRadius: "8px",
               border: "1px solid var(--border)",
@@ -300,7 +300,7 @@ function WeekBarChart({
             tickFormatter={(v: number) => (v >= 60 ? `${Math.floor(v / 60)}h` : `${v}m`)}
           />
           <Tooltip
-            formatter={(value: number | undefined) => formatHM(value ?? 0)}
+            formatter={(value: unknown) => formatHM(Number(value) || 0)}
             contentStyle={{
               borderRadius: "8px",
               border: "1px solid var(--border)",

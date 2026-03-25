@@ -32,7 +32,7 @@ export function LoginPage() {
     try {
       const { error } = await authClient.signIn.passkey();
       if (error) {
-        setError(error.message || "Passkey sign-in failed");
+        setError(String(error.message || "Passkey sign-in failed"));
       } else {
         navigate("/");
       }
