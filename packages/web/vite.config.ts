@@ -14,7 +14,7 @@ export default defineConfig({
         name: "Work Tracker",
         short_name: "Work Tracker",
         description: "Quick launcher for time tracking",
-        theme_color: "#3b82f6",
+        theme_color: "#1e293b",
         background_color: "#f9fafb",
         display: "standalone",
         start_url: "/launcher",

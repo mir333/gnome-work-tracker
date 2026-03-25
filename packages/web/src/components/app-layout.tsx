@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useSession, signOut } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Logo } from "@/components/logo";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -85,8 +86,11 @@ export function AppLayout({ children }: { children: ReactNode }) {
     <div className="min-h-screen bg-muted/40">
       <nav className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="flex h-14 items-center px-6 gap-1">
-          <Link to="/" className="font-bold text-lg mr-6 tracking-tight">
-            Work Tracker
+          <Link to="/" className="flex items-center gap-2 mr-6">
+            <Logo className="h-7 w-auto" />
+            <span className="font-bold text-lg tracking-tight hidden sm:inline">
+              Work Tracker
+            </span>
           </Link>
 
           <NavLink to="/" active={pathname === "/"} icon={LayoutDashboard}>
