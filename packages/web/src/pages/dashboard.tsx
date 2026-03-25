@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
+import { Link } from "react-router-dom";
 import { AppLayout } from "@/components/app-layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -169,22 +170,23 @@ function ProjectSummaryCards({
         const ci = getColorIndex(project.id, colorMap);
         const manDays = (totalMins / 60 / hoursPerManDay).toFixed(1);
         return (
-          <Card
-            key={project.id}
-            className={`${SLOT_BG_LIGHT[ci]} border-l-4 ${SLOT_BORDER_COLORS[ci]}`}
-          >
-            <CardContent className="py-4 px-4">
-              <div className="text-sm font-medium text-muted-foreground">
-                {project.name}
-              </div>
-              <div className="text-2xl font-bold mt-1">
-                {formatHM(totalMins)}{" "}
-                <span className="text-muted-foreground font-normal text-sm">
-                  ({manDays} MD)
-                </span>
-              </div>
-            </CardContent>
-          </Card>
+          <Link key={project.id} to={`/projects/${project.id}`} className="block">
+            <Card
+              className={`${SLOT_BG_LIGHT[ci]} border-l-4 ${SLOT_BORDER_COLORS[ci]} cursor-pointer transition-all hover:shadow-md hover:scale-[1.02]`}
+            >
+              <CardContent className="py-4 px-4">
+                <div className="text-sm font-medium text-muted-foreground">
+                  {project.name}
+                </div>
+                <div className="text-2xl font-bold mt-1">
+                  {formatHM(totalMins)}{" "}
+                  <span className="text-muted-foreground font-normal text-sm">
+                    ({manDays} MD)
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
         );
       })}
     </div>
