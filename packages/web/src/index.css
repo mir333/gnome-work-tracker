@@ -122,3 +122,153 @@
     @apply bg-background text-foreground;
     }
 }
+
+/* ── GNOME Shell panel look for PWA launcher ── */
+
+.gnome-shell {
+  min-height: 100vh;
+  background: #1e1e1e;
+  display: flex;
+  flex-direction: column;
+}
+
+.gnome-panel {
+  background: #2d2d2d;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 0;
+  user-select: none;
+  -webkit-app-region: drag;          /* let user drag the PWA window */
+}
+
+.gnome-bar {
+  display: flex;
+  align-items: center;
+  height: 34px;
+  padding: 0 6px;
+  gap: 2px;
+  -webkit-app-region: no-drag;
+}
+
+/* ── project buttons ── */
+
+.gnome-btn {
+  all: unset;
+  font-family: Cantarell, "Segoe UI", system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.82);
+  padding: 3px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 120ms ease;
+}
+
+.gnome-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.10);
+}
+
+.gnome-btn:active:not(:disabled) {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.gnome-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.gnome-btn-active {
+  background: rgba(53, 132, 228, 0.55);
+  color: #fff;
+}
+
+.gnome-btn-active:hover {
+  background: rgba(53, 132, 228, 0.70);
+}
+
+/* ── note (pencil) button ── */
+
+.gnome-btn-note {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 15px;
+  padding: 3px 8px;
+}
+
+/* ── stop (square) button ── */
+
+.gnome-btn-stop {
+  color: rgba(246, 97, 81, 0.85);
+  font-size: 13px;
+  padding: 3px 8px;
+}
+
+.gnome-btn-stop:hover:not(:disabled) {
+  background: rgba(246, 97, 81, 0.18);
+}
+
+/* ── popup (note entry) ── */
+
+.gnome-popup {
+  background: #3d3d3d;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  margin: 6px 8px 0;
+  padding: 8px 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+}
+
+.gnome-popup-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.gnome-popup-label {
+  font-family: Cantarell, "Segoe UI", system-ui, sans-serif;
+  font-size: 13px;
+  color: #aaa;
+  white-space: nowrap;
+}
+
+.gnome-popup-input {
+  flex: 1;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: #e0e0e0;
+  font-family: Cantarell, "Segoe UI", system-ui, sans-serif;
+  font-size: 13px;
+  padding: 4px 8px;
+  outline: none;
+  min-width: 180px;
+}
+
+.gnome-popup-input:focus {
+  border-color: rgba(53, 132, 228, 0.6);
+}
+
+.gnome-popup-input::placeholder {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.gnome-popup-save {
+  all: unset;
+  font-family: Cantarell, "Segoe UI", system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  background: rgba(53, 132, 228, 0.75);
+  color: #fff;
+  padding: 4px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.gnome-popup-save:hover:not(:disabled) {
+  background: rgba(53, 132, 228, 1);
+}
+
+.gnome-popup-save:disabled {
+  opacity: 0.4;
+  cursor: default;
+}

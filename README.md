@@ -11,7 +11,7 @@ A time-tracking application with a web dashboard and GNOME Shell extension for o
 ## Prerequisites
 
 - [Bun](https://bun.sh) (v1.0+)
-- GNOME Shell 45-49 (for the extension)
+- GNOME Shell 45-50.1 (for the extension)
 
 ## Quick Start (Development)
 
