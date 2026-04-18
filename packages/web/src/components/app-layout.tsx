@@ -14,6 +14,7 @@ import {
 import {
   LayoutDashboard,
   FolderOpen,
+  Building2,
   Rocket,
   User,
   Settings,
@@ -102,6 +103,13 @@ export function AppLayout({ children }: { children: ReactNode }) {
             icon={FolderOpen}
           >
             Projects
+          </NavLink>
+          <NavLink
+            to="/organisation"
+            active={pathname.startsWith("/organisation")}
+            icon={Building2}
+          >
+            Organisation
           </NavLink>
 
           <div className="ml-auto flex items-center gap-1">

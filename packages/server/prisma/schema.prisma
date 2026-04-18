@@ -27,6 +27,10 @@ model User {
   workItems       WorkItem[]
   dashboardConfig DashboardConfig[]
   timesheetShares TimesheetShare[]
+
+  ownedOrganisations  Organisation[]         @relation("OrgOwner")
+  organisationMembers OrganisationMember[]
+  sentInvites         OrganisationInvite[]   @relation("InviteSender")
 }
 
 model Session {
@@ -155,4 +159,44 @@ model TimesheetShare {
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([projectId, month])
+}
+
+model Organisation {
+  id        String   @id @default(uuid())
+  name      String
+  ownerId   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  owner   User                 @relation("OrgOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members OrganisationMember[]
+  invites OrganisationInvite[]
+}
+
+model OrganisationMember {
+  id       String   @id @default(uuid())
+  orgId    String
+  userId   String
+  role     String   @default("member")
+  joinedAt DateTime @default(now())
+
+  organisation Organisation @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, userId])
+}
+
+model OrganisationInvite {
+  id        String   @id @default(uuid())
+  orgId     String
+  email     String
+  status    String   @default("pending")
+  invitedBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organisation Organisation @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  inviter      User         @relation("InviteSender", fields: [invitedBy], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, email])
 }

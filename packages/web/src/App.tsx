@@ -9,6 +9,9 @@ import { SettingsPage } from "@/pages/settings";
 import { ProfilePage } from "@/pages/profile";
 import { LauncherPage } from "@/pages/launcher";
 import { SharedTimesheetPage } from "@/pages/shared-timesheet";
+import { OrganisationPage } from "@/pages/organisation";
+import { OrgReportPage } from "@/pages/org-report";
+import { OrgMemberViewPage } from "@/pages/org-member-view";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { data: session, isPending } = useSession();
@@ -76,6 +79,30 @@ export default function App() {
           element={
             <ProtectedRoute>
               <SharedTimesheetPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/organisation"
+          element={
+            <ProtectedRoute>
+              <OrganisationPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/organisation/:orgId/report"
+          element={
+            <ProtectedRoute>
+              <OrgReportPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/organisation/:orgId/members/:memberId"
+          element={
+            <ProtectedRoute>
+              <OrgMemberViewPage />
             </ProtectedRoute>
           }
         />
