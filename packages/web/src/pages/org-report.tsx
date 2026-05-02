@@ -18,22 +18,16 @@ import { ChevronLeft, ChevronRight, ArrowLeft } from "lucide-react";
 // Types
 // ---------------------------------------------------------------------------
 
-interface WorkItemWithProject {
-  id: string;
-  startedAt: string;
-  endedAt: string | null;
-  project: { id: string; name: string; slug: string };
-}
-
 interface MemberReport {
   userId: string;
   userName: string;
   role: string;
-  workItems: WorkItemWithProject[];
+  totalEffectiveMinutes: number;
+  manDays: number;
 }
 
 // ---------------------------------------------------------------------------
-// Colour palette (shared with other pages)
+// Colour palette
 // ---------------------------------------------------------------------------
 
 const SLOT_BORDER_COLORS = [
@@ -63,20 +57,6 @@ const ROLE_COLORS: Record<string, string> = {
 };
 
 // ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function calcTotalMins(items: WorkItemWithProject[]): number {
-  let total = 0;
-  for (const item of items) {
-    const s = new Date(item.startedAt).getTime();
-    const e = item.endedAt ? new Date(item.endedAt).getTime() : Date.now();
-    total += Math.max(0, Math.floor((e - s) / 60000));
-  }
-  return total;
-}
-
-// ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
 
@@ -86,7 +66,6 @@ export function OrgReportPage() {
 
   const [orgName, setOrgName] = useState("");
   const [reportData, setReportData] = useState<MemberReport[]>([]);
-  const [hoursPerManDay, setHoursPerManDay] = useState(8);
   const [selectedMonth, setSelectedMonth] = useState<Date>(new Date());
   const [loading, setLoading] = useState(true);
 
@@ -107,15 +86,13 @@ export function OrgReportPage() {
       try {
         const ms = startOfMonth(date);
         const me = endOfMonth(date);
-        const [data, settings, org] = await Promise.all([
+        const [data, org] = await Promise.all([
           api.get(
             `/organisations/${orgId}/report?from=${toDateString(ms)}&to=${toDateString(me)}`
           ),
-          api.get("/profile/settings"),
           api.get(`/organisations/${orgId}`),
         ]);
         setReportData(data);
-        setHoursPerManDay(settings.hoursPerManDay);
         setOrgName(org.name);
       } catch {
         setReportData([]);
@@ -130,21 +107,23 @@ export function OrgReportPage() {
     loadReport(selectedMonth);
   }, [selectedMonth, loadReport]);
 
-  // Compute totals
-  const memberTotals = useMemo(
+  // Sort members by hours descending
+  const sortedMembers = useMemo(
     () =>
-      reportData
-        .map((m) => ({
-          ...m,
-          totalMins: calcTotalMins(m.workItems),
-        }))
-        .sort((a, b) => b.totalMins - a.totalMins),
+      [...reportData].sort(
+        (a, b) => b.totalEffectiveMinutes - a.totalEffectiveMinutes
+      ),
     [reportData]
   );
 
-  const grandTotal = useMemo(
-    () => memberTotals.reduce((sum, m) => sum + m.totalMins, 0),
-    [memberTotals]
+  const grandTotalMins = useMemo(
+    () => sortedMembers.reduce((sum, m) => sum + m.totalEffectiveMinutes, 0),
+    [sortedMembers]
+  );
+
+  const grandTotalMD = useMemo(
+    () => sortedMembers.reduce((sum, m) => sum + m.manDays, 0),
+    [sortedMembers]
   );
 
   // ---------------------------------------------------------------------------
@@ -200,9 +179,9 @@ export function OrgReportPage() {
               Team Total
             </span>
             <span className="text-lg font-semibold">
-              {formatHM(grandTotal)}{" "}
+              {formatHM(grandTotalMins)}{" "}
               <span className="text-muted-foreground font-normal text-sm">
-                ({(grandTotal / 60 / hoursPerManDay).toFixed(1)} MD)
+                ({grandTotalMD.toFixed(1)} MD)
               </span>
             </span>
           </div>
@@ -213,19 +192,14 @@ export function OrgReportPage() {
           <p className="text-muted-foreground text-sm text-center py-8">
             Loading report...
           </p>
-        ) : memberTotals.length === 0 ? (
+        ) : sortedMembers.length === 0 ? (
           <p className="text-muted-foreground text-sm text-center py-8">
             No data for {monthLabel}
           </p>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {memberTotals.map((member, idx) => {
+            {sortedMembers.map((member, idx) => {
               const ci = idx % SLOT_BORDER_COLORS.length;
-              const manDays = (
-                member.totalMins /
-                60 /
-                hoursPerManDay
-              ).toFixed(1);
               return (
                 <Card
                   key={member.userId}
@@ -247,9 +221,9 @@ export function OrgReportPage() {
                       {member.role}
                     </Badge>
                     <div className="text-xl font-bold mt-2">
-                      {formatHM(member.totalMins)}{" "}
+                      {formatHM(member.totalEffectiveMinutes)}{" "}
                       <span className="text-muted-foreground font-normal text-xs">
-                        ({manDays} MD)
+                        ({member.manDays.toFixed(1)} MD)
                       </span>
                     </div>
                   </CardContent>

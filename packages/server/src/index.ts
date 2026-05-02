@@ -11,6 +11,7 @@ import { profile } from "./routes/profile";
 import { timesheetShares } from "./routes/timesheet-shares";
 import { organisations } from "./routes/organisations";
 import { invites } from "./routes/invites";
+import { timesheet } from "./routes/timesheet";
 
 const app = new Hono();
 
@@ -38,6 +39,7 @@ app.route("/api/status", status);
 app.route("/api/profile", profile);
 app.route("/api/organisations", organisations);
 app.route("/api/invites", invites);
+app.route("/api/timesheet", timesheet);
 app.route("/api", timesheetShares);
 app.route("/api", workItems);
 

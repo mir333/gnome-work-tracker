@@ -12,6 +12,7 @@
     "@better-auth/passkey": "^1.4.19",
     "@prisma/client": "^6",
     "better-auth": "latest",
+    "exceljs": "^4.4.0",
     "hono": "latest"
   },
   "devDependencies": {

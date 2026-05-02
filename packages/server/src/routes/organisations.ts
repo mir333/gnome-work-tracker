@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { requireAuth, requireOrgRole } from "../middleware/auth";
 import { organisationService } from "../services/organisation.service";
+import { timesheetService } from "../services/timesheet.service";
 
 const organisations = new Hono();
 
@@ -192,6 +193,28 @@ organisations.get(
     if (!items)
       return c.json({ error: "Not authorized or member not found" }, 403);
     return c.json(items);
+  }
+);
+
+// View a specific member's computed timesheet (owner/manager only)
+organisations.get(
+  "/:orgId/members/:memberId/timesheet",
+  requireOrgRole("owner", "manager"),
+  async (c) => {
+    const userId = c.get("userId");
+    const { from, to } = c.req.query();
+    if (!from || !to)
+      return c.json({ error: "from and to are required" }, 400);
+
+    const canView = await organisationService.canViewMemberData(
+      c.req.param("orgId"),
+      userId
+    );
+    if (!canView) return c.json({ error: "Not authorized" }, 403);
+
+    const memberId = c.req.param("memberId");
+    const result = await timesheetService.getTimesheet(memberId, from, to);
+    return c.json(result);
   }
 );
 

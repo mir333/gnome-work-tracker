@@ -1,6 +1,6 @@
 import { timesheetShareRepository } from "../repositories/timesheet-share.repository";
 import { projectRepository } from "../repositories/project.repository";
-import { workItemRepository } from "../repositories/work-item.repository";
+import { timesheetService } from "./timesheet.service";
 
 export const timesheetShareService = {
   async createShare(projectId: string, userId: string, month: string) {
@@ -38,19 +38,21 @@ export const timesheetShareService = {
 
     // Parse month "YYYY-MM" into date range
     const [year, mon] = share.month.split("-").map(Number);
-    const dateFrom = new Date(year, mon - 1, 1);
-    const dateTo = new Date(year, mon, 0, 23, 59, 59);
+    const fromDate = `${year}-${String(mon).padStart(2, "0")}-01`;
+    const lastDay = new Date(year, mon, 0).getDate();
+    const toDate = `${year}-${String(mon).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
 
-    const workItems = await workItemRepository.findByProject(
-      share.projectId,
-      dateFrom,
-      dateTo
+    const ts = await timesheetService.getTimesheet(
+      share.userId,
+      fromDate,
+      toDate,
+      share.projectId
     );
 
     return {
       project: share.project,
       month: share.month,
-      workItems,
+      timesheet: ts,
     };
   },
 };

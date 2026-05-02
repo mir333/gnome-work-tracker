@@ -3,6 +3,7 @@ import { organisationMemberRepository } from "../repositories/organisation-membe
 import { organisationInviteRepository } from "../repositories/organisation-invite.repository";
 import { workItemRepository } from "../repositories/work-item.repository";
 import { projectRepository } from "../repositories/project.repository";
+import { timesheetService } from "./timesheet.service";
 import { prisma } from "../db";
 
 export const organisationService = {
@@ -265,16 +266,17 @@ export const organisationService = {
 
     const memberData = await Promise.all(
       members.map(async (member) => {
-        const workItems = await workItemRepository.findByUserAndDateRange(
+        const ts = await timesheetService.getTimesheet(
           member.userId,
-          new Date(from),
-          new Date(to)
+          from,
+          to
         );
         return {
           userId: member.userId,
           userName: member.user.name,
           role: member.role,
-          workItems,
+          totalEffectiveMinutes: ts.totalEffectiveMinutes,
+          manDays: ts.manDays,
         };
       })
     );

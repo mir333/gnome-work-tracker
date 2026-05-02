@@ -23,16 +23,16 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { api } from "@/lib/api";
 import {
-  formatHM,
   toDateString,
   startOfMonth,
   endOfMonth,
   addMonths,
   formatMonth,
-  shortDayName,
 } from "@/lib/date-utils";
 import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight, Share2, Copy, Check, X } from "lucide-react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { TimesheetTable } from "@/components/timesheet-table";
+import type { TimesheetResult } from "@/lib/timesheet-types";
 
 interface Project {
   id: string;
@@ -71,41 +71,6 @@ function toLocalDatetime(iso: string): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-interface DayRow {
-  date: string;
-  dayName: string;
-  totalMins: number;
-  descriptions: string;
-}
-
-function aggregateByDay(items: WorkItem[]): DayRow[] {
-  const map = new Map<string, { totalMins: number; descriptions: Set<string> }>();
-
-  for (const item of items) {
-    const dateKey = toDateString(new Date(item.startedAt));
-    const entry = map.get(dateKey) || { totalMins: 0, descriptions: new Set<string>() };
-
-    const s = new Date(item.startedAt).getTime();
-    const e = item.endedAt ? new Date(item.endedAt).getTime() : Date.now();
-    entry.totalMins += Math.floor((e - s) / 60000);
-
-    if (item.description?.trim()) {
-      entry.descriptions.add(item.description.trim());
-    }
-
-    map.set(dateKey, entry);
-  }
-
-  return Array.from(map.entries())
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([dateStr, { totalMins, descriptions }]) => ({
-      date: dateStr,
-      dayName: shortDayName(new Date(dateStr + "T12:00:00")),
-      totalMins,
-      descriptions: Array.from(descriptions).join("; ") || "\u2014",
-    }));
-}
-
 export function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [project, setProject] = useState<Project | null>(null);
@@ -139,8 +104,7 @@ export function ProjectDetailPage() {
 
   // Monthly timesheet state
   const [sheetMonth, setSheetMonth] = useState(() => startOfMonth(new Date()));
-  const [sheetItems, setSheetItems] = useState<WorkItem[]>([]);
-  const [hoursPerManDay, setHoursPerManDay] = useState(8);
+  const [timesheet, setTimesheet] = useState<TimesheetResult | null>(null);
 
   // Share timesheet state
   interface ShareInfo {
@@ -167,19 +131,13 @@ export function ProjectDetailPage() {
     const from = toDateString(sheetMonth);
     const to = toDateString(endOfMonth(sheetMonth));
     const data = await api.get(
-      `/projects/${id}/work-items?dateFrom=${from}&dateTo=${to}`
+      `/timesheet?from=${from}&to=${to}&projectId=${id}`
     );
-    setSheetItems(data);
+    setTimesheet(data);
   }, [id, sheetMonth]);
-
-  const loadSettings = useCallback(async () => {
-    const data = await api.get("/profile/settings");
-    setHoursPerManDay(data.hoursPerManDay);
-  }, []);
 
   useEffect(() => {
     load();
-    loadSettings();
   }, [id]);
 
   useEffect(() => {
@@ -187,18 +145,6 @@ export function ProjectDetailPage() {
       loadTimesheet();
     }
   }, [activeTab, loadTimesheet]);
-
-  const dayRows = useMemo(() => aggregateByDay(sheetItems), [sheetItems]);
-
-  const monthTotalMins = useMemo(
-    () => dayRows.reduce((sum, r) => sum + r.totalMins, 0),
-    [dayRows]
-  );
-
-  const manDays = useMemo(
-    () => (monthTotalMins / 60 / hoursPerManDay).toFixed(1),
-    [monthTotalMins, hoursPerManDay]
-  );
 
   // Pagination: items are already sorted newest-first from the API
   const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
@@ -696,61 +642,43 @@ export function ProjectDetailPage() {
               </DialogContent>
             </Dialog>
 
-            {/* Monthly summary */}
-            <Card className="mb-4">
-              <div className="px-6 py-4 flex items-center justify-between">
-                <span className="text-sm font-medium text-muted-foreground">
-                  Monthly Total
-                </span>
-                <span className="text-lg font-semibold">
-                  {formatHM(monthTotalMins)}{" "}
-                  <span className="text-muted-foreground font-normal text-sm">
-                    ({manDays} MD)
-                  </span>
-                </span>
-              </div>
-            </Card>
-
             {/* Timesheet table */}
-            {dayRows.length === 0 ? (
-              <Card>
-                <div className="py-12 text-center text-muted-foreground text-sm">
-                  No work items this month
-                </div>
-              </Card>
+            {timesheet ? (
+              <TimesheetTable
+                timesheet={timesheet}
+                editable
+                onAdjust={async (projectId, date, adjustedMinutes, description) => {
+                  await api.put("/timesheet/entries", {
+                    projectId,
+                    date,
+                    adjustedMinutes,
+                    description,
+                  });
+                  loadTimesheet();
+                }}
+                onReset={async (entryId) => {
+                  await api.delete(`/timesheet/entries/${entryId}`);
+                  loadTimesheet();
+                }}
+                onExport={async () => {
+                  const from = toDateString(sheetMonth);
+                  const to = toDateString(endOfMonth(sheetMonth));
+                  const blob = await api.getBlob(
+                    `/timesheet/export/excel?from=${from}&to=${to}&projectId=${id}`
+                  );
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `timesheet-${project.slug}-${from.slice(0, 7)}.xlsx`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}
+              />
             ) : (
               <Card>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Day</TableHead>
-                      <TableHead>Hours</TableHead>
-                      <TableHead>Description</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {dayRows.map((row) => (
-                      <TableRow key={row.date}>
-                        <TableCell className="text-muted-foreground">
-                          {new Date(row.date + "T12:00:00").toLocaleDateString(
-                            undefined,
-                            { month: "short", day: "numeric", year: "numeric" }
-                          )}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {row.dayName}
-                        </TableCell>
-                        <TableCell className="font-mono text-sm font-medium">
-                          {formatHM(row.totalMins)}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground max-w-md truncate">
-                          {row.descriptions}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                <div className="py-12 text-center text-muted-foreground text-sm">
+                  Loading...
+                </div>
               </Card>
             )}
           </>

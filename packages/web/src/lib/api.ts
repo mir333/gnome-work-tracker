@@ -20,4 +20,16 @@ export const api = {
   put: (path: string, body: unknown) =>
     request(path, { method: "PUT", body: JSON.stringify(body) }),
   delete: (path: string) => request(path, { method: "DELETE" }),
+
+  /** Download binary blob (for Excel export) */
+  async getBlob(path: string): Promise<Blob> {
+    const res = await fetch(`${BASE}${path}`, {
+      credentials: "include",
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || res.statusText);
+    }
+    return res.blob();
+  },
 };
