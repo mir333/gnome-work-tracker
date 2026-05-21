@@ -3,6 +3,14 @@ import { useParams, useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/app-layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { api } from "@/lib/api";
 import {
@@ -39,6 +47,36 @@ const SLOT_BG_LIGHT = [
 ];
 
 // ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+interface WorkItemWithProject {
+  id: string;
+  startedAt: string;
+  endedAt: string | null;
+  description: string | null;
+  project: { id: string; name: string; slug: string };
+}
+
+type TabKey = "timesheet" | "workitems";
+
+function formatDuration(start: string, end: string | null): string {
+  const s = new Date(start).getTime();
+  const e = end ? new Date(end).getTime() : Date.now();
+  const mins = Math.floor((e - s) / 60000);
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return `${h}h ${m}m`;
+}
+
+function formatTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
 
@@ -51,7 +89,9 @@ export function OrgMemberViewPage() {
 
   const [memberName, setMemberName] = useState("");
   const [timesheet, setTimesheet] = useState<TimesheetResult | null>(null);
+  const [workItems, setWorkItems] = useState<WorkItemWithProject[]>([]);
   const [selectedMonth, setSelectedMonth] = useState<Date>(new Date());
+  const [activeTab, setActiveTab] = useState<TabKey>("timesheet");
   const [loading, setLoading] = useState(true);
 
   const monthLabel = formatMonth(selectedMonth);
@@ -71,15 +111,20 @@ export function OrgMemberViewPage() {
       try {
         const ms = startOfMonth(date);
         const me = endOfMonth(date);
-        const [ts, members] = await Promise.all([
+        const from = toDateString(ms);
+        const to = toDateString(me);
+        const [ts, items, members] = await Promise.all([
           api.get(
-            `/organisations/${orgId}/members/${memberId}/timesheet?from=${toDateString(ms)}&to=${toDateString(me)}`
+            `/organisations/${orgId}/members/${memberId}/timesheet?from=${from}&to=${to}`
+          ),
+          api.get(
+            `/organisations/${orgId}/members/${memberId}/work-items?from=${from}&to=${to}`
           ),
           api.get(`/organisations/${orgId}/members`),
         ]);
         setTimesheet(ts);
+        setWorkItems(items);
 
-        // Find member name
         const member = members.find(
           (m: { userId: string; user: { name: string } }) =>
             m.userId === memberId
@@ -87,6 +132,7 @@ export function OrgMemberViewPage() {
         if (member) setMemberName(member.user.name);
       } catch {
         setTimesheet(null);
+        setWorkItems([]);
       } finally {
         setLoading(false);
       }
@@ -166,54 +212,142 @@ export function OrgMemberViewPage() {
           </Button>
         </div>
 
+        {/* Tab Switcher */}
+        <div className="flex gap-1 mb-6 bg-muted rounded-lg p-1">
+          {(
+            [
+              { key: "timesheet", label: "Monthly Timesheet" },
+              { key: "workitems", label: "Work Items" },
+            ] as const
+          ).map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                activeTab === tab.key
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
         {loading ? (
           <p className="text-muted-foreground text-sm text-center py-8">
             Loading...
           </p>
-        ) : timesheet ? (
+        ) : (
           <>
-            {/* Per-project breakdown cards */}
-            {byProject.length > 1 && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
-                {byProject.map(({ projectId, projectName, totalMins }, idx) => {
-                  const ci = idx % SLOT_BORDER_COLORS.length;
-                  const md = (
-                    totalMins /
-                    60 /
-                    timesheet.hoursPerManDay
-                  ).toFixed(1);
-                  return (
-                    <Card
-                      key={projectId}
-                      className={`${SLOT_BG_LIGHT[ci]} border-l-4 ${SLOT_BORDER_COLORS[ci]}`}
-                    >
-                      <CardContent className="py-4 px-4">
-                        <div className="text-sm font-medium text-muted-foreground truncate">
-                          {projectName}
-                        </div>
-                        <div className="text-xl font-bold mt-1">
-                          {formatHM(totalMins)}{" "}
-                          <span className="text-muted-foreground font-normal text-xs">
-                            ({md} MD)
-                          </span>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
+            {/* TIMESHEET TAB */}
+            {activeTab === "timesheet" && (
+              <>
+                {timesheet ? (
+                  <>
+                    {byProject.length > 1 && (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
+                        {byProject.map(({ projectId, projectName, totalMins }, idx) => {
+                          const ci = idx % SLOT_BORDER_COLORS.length;
+                          const md = (
+                            totalMins /
+                            60 /
+                            timesheet.hoursPerManDay
+                          ).toFixed(1);
+                          return (
+                            <Card
+                              key={projectId}
+                              className={`${SLOT_BG_LIGHT[ci]} border-l-4 ${SLOT_BORDER_COLORS[ci]}`}
+                            >
+                              <CardContent className="py-4 px-4">
+                                <div className="text-sm font-medium text-muted-foreground truncate">
+                                  {projectName}
+                                </div>
+                                <div className="text-xl font-bold mt-1">
+                                  {formatHM(totalMins)}{" "}
+                                  <span className="text-muted-foreground font-normal text-xs">
+                                    ({md} MD)
+                                  </span>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          );
+                        })}
+                      </div>
+                    )}
+                    <TimesheetTable
+                      timesheet={timesheet}
+                      showProject={byProject.length > 1}
+                    />
+                  </>
+                ) : (
+                  <p className="text-muted-foreground text-sm text-center py-8">
+                    No work logged in {monthLabel}
+                  </p>
+                )}
+              </>
             )}
 
-            {/* Daily timesheet table */}
-            <TimesheetTable
-              timesheet={timesheet}
-              showProject={byProject.length > 1}
-            />
+            {/* WORK ITEMS TAB */}
+            {activeTab === "workitems" && (
+              <>
+                {workItems.length === 0 ? (
+                  <Card>
+                    <div className="py-12 text-center text-muted-foreground text-sm">
+                      No work items in {monthLabel}
+                    </div>
+                  </Card>
+                ) : (
+                  <Card>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Project</TableHead>
+                          <TableHead>Start</TableHead>
+                          <TableHead>End</TableHead>
+                          <TableHead>Duration</TableHead>
+                          <TableHead>Description</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {workItems.map((item) => (
+                          <TableRow key={item.id}>
+                            <TableCell className="text-muted-foreground">
+                              {new Date(item.startedAt).toLocaleDateString()}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="secondary" className="text-xs">
+                                {item.project.name}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="font-mono text-sm">
+                              {formatTime(item.startedAt)}
+                            </TableCell>
+                            <TableCell>
+                              {item.endedAt ? (
+                                <span className="font-mono text-sm">
+                                  {formatTime(item.endedAt)}
+                                </span>
+                              ) : (
+                                <Badge>Active</Badge>
+                              )}
+                            </TableCell>
+                            <TableCell className="font-mono text-sm">
+                              {formatDuration(item.startedAt, item.endedAt)}
+                            </TableCell>
+                            <TableCell className="text-muted-foreground max-w-[300px] truncate">
+                              {item.description || "—"}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </Card>
+                )}
+              </>
+            )}
           </>
-        ) : (
-          <p className="text-muted-foreground text-sm text-center py-8">
-            No work logged in {monthLabel}
-          </p>
         )}
       </div>
     </AppLayout>
