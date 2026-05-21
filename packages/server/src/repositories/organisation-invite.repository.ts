@@ -1,11 +1,12 @@
 import { prisma } from "../db";
 
 export const organisationInviteRepository = {
-  async create(data: { orgId: string; email: string; invitedBy: string }) {
+  async create(data: { orgId: string; targetUserId: string; invitedBy: string }) {
     return prisma.organisationInvite.create({
       data,
       include: {
         organisation: { select: { id: true, name: true } },
+        targetUser: { select: { id: true, name: true, username: true, displayUsername: true } },
       },
     });
   },
@@ -16,13 +17,14 @@ export const organisationInviteRepository = {
       include: {
         organisation: { select: { id: true, name: true } },
         inviter: { select: { id: true, name: true } },
+        targetUser: { select: { id: true, name: true, username: true, displayUsername: true } },
       },
     });
   },
 
-  async findByOrgAndEmail(orgId: string, email: string) {
+  async findByOrgAndUser(orgId: string, targetUserId: string) {
     return prisma.organisationInvite.findUnique({
-      where: { orgId_email: { orgId, email } },
+      where: { orgId_targetUserId: { orgId, targetUserId } },
     });
   },
 
@@ -31,14 +33,15 @@ export const organisationInviteRepository = {
       where: { orgId, status: "pending" },
       include: {
         inviter: { select: { id: true, name: true } },
+        targetUser: { select: { id: true, name: true, username: true, displayUsername: true } },
       },
       orderBy: { createdAt: "desc" },
     });
   },
 
-  async findPendingByEmail(email: string) {
+  async findPendingByUserId(userId: string) {
     return prisma.organisationInvite.findMany({
-      where: { email, status: "pending" },
+      where: { targetUserId: userId, status: "pending" },
       include: {
         organisation: { select: { id: true, name: true } },
         inviter: { select: { id: true, name: true } },

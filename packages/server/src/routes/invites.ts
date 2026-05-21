@@ -8,19 +8,17 @@ invites.use("*", requireAuth);
 
 // List my pending invites
 invites.get("/", async (c) => {
-  const user = c.get("user");
-  const pending = await organisationService.getMyPendingInvites(user.email);
+  const userId = c.get("userId");
+  const pending = await organisationService.getMyPendingInvites(userId);
   return c.json(pending);
 });
 
 // Accept an invite
 invites.post("/:inviteId/accept", async (c) => {
   const userId = c.get("userId");
-  const user = c.get("user");
   const org = await organisationService.acceptInvite(
     c.req.param("inviteId"),
-    userId,
-    user.email
+    userId
   );
   if (!org)
     return c.json({ error: "Invite not found or already processed" }, 404);
@@ -29,10 +27,10 @@ invites.post("/:inviteId/accept", async (c) => {
 
 // Decline an invite
 invites.post("/:inviteId/decline", async (c) => {
-  const user = c.get("user");
+  const userId = c.get("userId");
   const ok = await organisationService.declineInvite(
     c.req.param("inviteId"),
-    user.email
+    userId
   );
   if (!ok)
     return c.json({ error: "Invite not found or already processed" }, 404);

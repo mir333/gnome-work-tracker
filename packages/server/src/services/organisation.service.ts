@@ -47,7 +47,7 @@ export const organisationService = {
 
   // ---- Invite management ----
 
-  async sendInvite(orgId: string, inviterId: string, email: string) {
+  async sendInvite(orgId: string, inviterId: string, username: string) {
     const membership = await organisationMemberRepository.findByOrgAndUser(
       orgId,
       inviterId
@@ -56,34 +56,40 @@ export const organisationService = {
       return { error: "Not authorized" };
     }
 
-    // Check if already a member
-    const targetUser = await prisma.user.findUnique({ where: { email } });
-    if (targetUser) {
-      const existingMember =
-        await organisationMemberRepository.findByOrgAndUser(
-          orgId,
-          targetUser.id
-        );
-      if (existingMember) return { error: "User is already a member" };
-    }
+    const targetUser = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { username: username },
+          { displayUsername: username },
+        ],
+      },
+    });
+    if (!targetUser) return { error: "User not found" };
 
-    // Check if invite already pending
-    const existingInvite = await organisationInviteRepository.findByOrgAndEmail(
+    if (targetUser.id === inviterId) return { error: "Cannot invite yourself" };
+
+    const existingMember =
+      await organisationMemberRepository.findByOrgAndUser(
+        orgId,
+        targetUser.id
+      );
+    if (existingMember) return { error: "User is already a member" };
+
+    const existingInvite = await organisationInviteRepository.findByOrgAndUser(
       orgId,
-      email
+      targetUser.id
     );
     if (existingInvite && existingInvite.status === "pending") {
       return { error: "Invite already pending" };
     }
 
-    // If a previous declined invite exists, delete it and create fresh
     if (existingInvite) {
       await organisationInviteRepository.delete(existingInvite.id);
     }
 
     const invite = await organisationInviteRepository.create({
       orgId,
-      email,
+      targetUserId: targetUser.id,
       invitedBy: inviterId,
     });
     return { invite };
@@ -98,14 +104,14 @@ export const organisationService = {
     return organisationInviteRepository.findPendingByOrg(orgId);
   },
 
-  async getMyPendingInvites(email: string) {
-    return organisationInviteRepository.findPendingByEmail(email);
+  async getMyPendingInvites(userId: string) {
+    return organisationInviteRepository.findPendingByUserId(userId);
   },
 
-  async acceptInvite(inviteId: string, userId: string, userEmail: string) {
+  async acceptInvite(inviteId: string, userId: string) {
     const invite = await organisationInviteRepository.findById(inviteId);
     if (!invite || invite.status !== "pending") return null;
-    if (invite.email !== userEmail) return null;
+    if (invite.targetUserId !== userId) return null;
 
     await organisationMemberRepository.create({
       orgId: invite.orgId,
@@ -117,10 +123,10 @@ export const organisationService = {
     return invite.organisation;
   },
 
-  async declineInvite(inviteId: string, userEmail: string) {
+  async declineInvite(inviteId: string, userId: string) {
     const invite = await organisationInviteRepository.findById(inviteId);
     if (!invite || invite.status !== "pending") return null;
-    if (invite.email !== userEmail) return null;
+    if (invite.targetUserId !== userId) return null;
 
     await organisationInviteRepository.updateStatus(inviteId, "declined");
     return true;

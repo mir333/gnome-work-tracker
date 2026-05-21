@@ -73,13 +73,12 @@ interface OrgMember {
 
 interface OrgInvite {
   id: string;
-  email: string;
+  targetUser: { id: string; name: string; username: string | null; displayUsername: string | null };
   inviter: { id: string; name: string };
 }
 
 interface PendingInvite {
   id: string;
-  email: string;
   organisation: { id: string; name: string };
   inviter: { id: string; name: string };
 }
@@ -122,7 +121,8 @@ export function OrganisationPage() {
 
   // Invite member dialog
   const [inviteOpen, setInviteOpen] = useState(false);
-  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteUsername, setInviteUsername] = useState("");
+  const [inviteError, setInviteError] = useState<string | null>(null);
 
   // Derived
   const selectedOrg = orgs.find((o) => o.id === selectedOrgId) ?? null;
@@ -194,12 +194,17 @@ export function OrganisationPage() {
   async function handleInvite(e: React.FormEvent) {
     e.preventDefault();
     if (!selectedOrgId) return;
-    await api.post(`/organisations/${selectedOrgId}/invites`, {
-      email: inviteEmail,
-    });
-    setInviteEmail("");
-    setInviteOpen(false);
-    loadOrgDetails(selectedOrgId);
+    setInviteError(null);
+    try {
+      await api.post(`/organisations/${selectedOrgId}/invites`, {
+        username: inviteUsername,
+      });
+      setInviteUsername("");
+      setInviteOpen(false);
+      loadOrgDetails(selectedOrgId);
+    } catch (err: any) {
+      setInviteError(err.message || "Failed to send invite");
+    }
   }
 
   async function handleCancelInvite(inviteId: string) {
@@ -417,7 +422,14 @@ export function OrganisationPage() {
                         key={inv.id}
                         className="flex items-center justify-between py-1"
                       >
-                        <span className="text-sm">{inv.email}</span>
+                        <span className="text-sm">
+                          {inv.targetUser.name}
+                          {inv.targetUser.displayUsername && (
+                            <span className="text-muted-foreground ml-1">
+                              @{inv.targetUser.displayUsername}
+                            </span>
+                          )}
+                        </span>
                         <Button
                           variant="ghost"
                           size="sm"
@@ -560,23 +572,25 @@ export function OrganisationPage() {
         {/* ================================================================ */}
         {/* INVITE DIALOG                                                    */}
         {/* ================================================================ */}
-        <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
+        <Dialog open={inviteOpen} onOpenChange={(open) => { setInviteOpen(open); if (!open) setInviteError(null); }}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Invite Member</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleInvite} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="inviteEmail">Email Address</Label>
+                <Label htmlFor="inviteUsername">Username</Label>
                 <Input
-                  id="inviteEmail"
-                  type="email"
-                  value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
-                  placeholder="colleague@example.com"
+                  id="inviteUsername"
+                  value={inviteUsername}
+                  onChange={(e) => setInviteUsername(e.target.value)}
+                  placeholder="Enter username"
                   required
                 />
               </div>
+              {inviteError && (
+                <p className="text-sm text-destructive">{inviteError}</p>
+              )}
               <Button type="submit" className="w-full">
                 Send Invite
               </Button>

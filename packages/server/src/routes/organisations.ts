@@ -56,12 +56,12 @@ organisations.post(
   requireOrgRole("owner", "manager"),
   async (c) => {
     const userId = c.get("userId");
-    const { email } = await c.req.json();
-    if (!email) return c.json({ error: "Email is required" }, 400);
+    const { username } = await c.req.json();
+    if (!username) return c.json({ error: "Username is required" }, 400);
     const result = await organisationService.sendInvite(
       c.req.param("orgId"),
       userId,
-      email
+      username
     );
     if ("error" in result) return c.json({ error: result.error }, 400);
     return c.json(result.invite, 201);

@@ -32,6 +32,7 @@ model User {
   ownedOrganisations  Organisation[]         @relation("OrgOwner")
   organisationMembers OrganisationMember[]
   sentInvites         OrganisationInvite[]   @relation("InviteSender")
+  receivedInvites     OrganisationInvite[]  @relation("InviteTarget")
 }
 
 model Session {
@@ -189,18 +190,19 @@ model OrganisationMember {
 }
 
 model OrganisationInvite {
-  id        String   @id @default(uuid())
-  orgId     String
-  email     String
-  status    String   @default("pending")
-  invitedBy String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String   @id @default(uuid())
+  orgId        String
+  targetUserId String
+  status       String   @default("pending")
+  invitedBy    String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   organisation Organisation @relation(fields: [orgId], references: [id], onDelete: Cascade)
   inviter      User         @relation("InviteSender", fields: [invitedBy], references: [id], onDelete: Cascade)
+  targetUser   User         @relation("InviteTarget", fields: [targetUserId], references: [id], onDelete: Cascade)
 
-  @@unique([orgId, email])
+  @@unique([orgId, targetUserId])
 }
 
 model TimesheetEntry {
