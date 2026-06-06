@@ -33,6 +33,7 @@ model User {
   organisationMembers OrganisationMember[]
   sentInvites         OrganisationInvite[]   @relation("InviteSender")
   receivedInvites     OrganisationInvite[]  @relation("InviteTarget")
+  auditLogs           AuditLog[]
 }
 
 model Session {
@@ -219,4 +220,16 @@ model TimesheetEntry {
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@unique([userId, projectId, date])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String
+  action     String
+  entityType String
+  entityId   String
+  payload    String?
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

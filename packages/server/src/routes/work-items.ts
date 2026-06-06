@@ -48,7 +48,8 @@ workItems.put("/work-items/:id", async (c) => {
 });
 
 workItems.delete("/work-items/:id", async (c) => {
-  await workItemService.delete(c.req.param("id"));
+  const userId = c.get("userId");
+  await workItemService.delete(c.req.param("id"), userId);
   return c.json({ ok: true });
 });
 

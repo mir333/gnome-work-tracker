@@ -2,6 +2,11 @@ import { workItemRepository } from "../repositories/work-item.repository";
 import { timesheetEntryRepository } from "../repositories/timesheet-entry.repository";
 import { projectRepository } from "../repositories/project.repository";
 import { userSettingsRepository } from "../repositories/user-settings.repository";
+import {
+  auditLogService,
+  AuditAction,
+  EntityType,
+} from "./audit-log.service";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -200,13 +205,37 @@ export const timesheetService = {
     const project = await projectRepository.findById(projectId);
     if (!project || project.userId !== userId) return null;
 
-    return timesheetEntryRepository.upsert({
+    // Fetch existing entry (if any) for before-state in audit log
+    const existing = await timesheetEntryRepository.findByUserProjectAndDate(
+      userId,
+      projectId,
+      date
+    );
+
+    const result = await timesheetEntryRepository.upsert({
       userId,
       projectId,
       date,
       adjustedMinutes,
       description,
     });
+
+    auditLogService.log(userId, AuditAction.TIMESHEET_ADJUSTED, EntityType.TIMESHEET_ENTRY, result.id, {
+      projectId,
+      date,
+      before: existing
+        ? {
+            adjustedMinutes: existing.adjustedMinutes,
+            description: existing.description ?? null,
+          }
+        : null,
+      after: {
+        adjustedMinutes,
+        description: description ?? null,
+      },
+    });
+
+    return result;
   },
 
   /**
@@ -215,7 +244,16 @@ export const timesheetService = {
   async deleteEntry(id: string, userId: string) {
     const entry = await timesheetEntryRepository.findById(id);
     if (!entry || entry.userId !== userId) return false;
+
     await timesheetEntryRepository.delete(id);
+
+    auditLogService.log(userId, AuditAction.TIMESHEET_ADJUSTMENT_DELETED, EntityType.TIMESHEET_ENTRY, id, {
+      projectId: entry.projectId,
+      date: entry.date,
+      adjustedMinutes: entry.adjustedMinutes,
+      description: entry.description ?? null,
+    });
+
     return true;
   },
 };
