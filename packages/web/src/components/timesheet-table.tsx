@@ -23,6 +23,8 @@ interface TimesheetTableProps {
   timesheet: TimesheetResult;
   editable?: boolean;
   showProject?: boolean;
+  /** Label for the summary card total (e.g. "Monthly Total", "Weekly Total"). */
+  totalLabel?: string;
   onAdjust?: (
     projectId: string,
     date: string,
@@ -214,6 +216,7 @@ export function TimesheetTable({
   timesheet,
   editable = false,
   showProject = false,
+  totalLabel = "Monthly Total",
   onAdjust,
   onReset,
   onExport,
@@ -231,7 +234,7 @@ export function TimesheetTable({
           <div className="flex items-center gap-4">
             <div>
               <span className="text-sm font-medium text-muted-foreground">
-                Monthly Total
+                {totalLabel}
               </span>
               <div className="text-lg font-semibold">
                 {formatHM(totalEffectiveMinutes)}{" "}

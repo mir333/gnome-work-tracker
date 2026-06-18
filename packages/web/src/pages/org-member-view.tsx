@@ -16,11 +16,21 @@ import { api } from "@/lib/api";
 import {
   formatHM,
   toDateString,
+  startOfWeek,
+  endOfWeek,
   startOfMonth,
   endOfMonth,
+  addDays,
   formatMonth,
+  formatDateRange,
+  isSameDay,
 } from "@/lib/date-utils";
-import { ChevronLeft, ChevronRight, ArrowLeft } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  ArrowLeft,
+  Calendar,
+} from "lucide-react";
 import { TimesheetTable } from "@/components/timesheet-table";
 import type { TimesheetResult } from "@/lib/timesheet-types";
 
@@ -59,6 +69,36 @@ interface WorkItemWithProject {
 }
 
 type TabKey = "timesheet" | "workitems";
+type PeriodKey = "day" | "week" | "month";
+
+/** Compute the [from, to) date range (to is exclusive) for a period anchor. */
+function periodRange(period: PeriodKey, date: Date): { from: Date; to: Date } {
+  if (period === "day") {
+    const from = new Date(date);
+    from.setHours(0, 0, 0, 0);
+    return { from, to: addDays(from, 1) };
+  }
+  if (period === "week") {
+    return { from: startOfWeek(date), to: endOfWeek(date) };
+  }
+  return { from: startOfMonth(date), to: endOfMonth(date) };
+}
+
+/** Human-readable label for the selected period. */
+function periodLabel(period: PeriodKey, date: Date): string {
+  if (period === "day") {
+    return date.toLocaleDateString(undefined, {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  }
+  if (period === "week") {
+    return formatDateRange(startOfWeek(date), endOfWeek(date));
+  }
+  return formatMonth(date);
+}
 
 function formatDuration(start: string, end: string | null): string {
   const s = new Date(start).getTime();
@@ -90,29 +130,42 @@ export function OrgMemberViewPage() {
   const [memberName, setMemberName] = useState("");
   const [timesheet, setTimesheet] = useState<TimesheetResult | null>(null);
   const [workItems, setWorkItems] = useState<WorkItemWithProject[]>([]);
-  const [selectedMonth, setSelectedMonth] = useState<Date>(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [period, setPeriod] = useState<PeriodKey>("month");
   const [activeTab, setActiveTab] = useState<TabKey>("timesheet");
   const [loading, setLoading] = useState(true);
 
-  const monthLabel = formatMonth(selectedMonth);
+  const rangeLabel = periodLabel(period, selectedDate);
+  const isToday = isSameDay(selectedDate, new Date());
+  const totalLabel =
+    period === "day"
+      ? "Daily Total"
+      : period === "week"
+        ? "Weekly Total"
+        : "Monthly Total";
 
-  function navigateMonth(direction: -1 | 1) {
-    setSelectedMonth((prev) => {
-      const next = new Date(prev);
-      next.setMonth(next.getMonth() + direction);
-      return next;
+  function navigateDate(direction: -1 | 1) {
+    setSelectedDate((prev) => {
+      if (period === "month") {
+        const next = new Date(prev);
+        next.setMonth(next.getMonth() + direction);
+        return next;
+      }
+      if (period === "week") {
+        return addDays(prev, direction * 7);
+      }
+      return addDays(prev, direction);
     });
   }
 
   const loadData = useCallback(
-    async (date: Date) => {
+    async (date: Date, activePeriod: PeriodKey) => {
       if (!orgId || !memberId) return;
       setLoading(true);
       try {
-        const ms = startOfMonth(date);
-        const me = endOfMonth(date);
-        const from = toDateString(ms);
-        const to = toDateString(me);
+        const { from: fromDate, to: toDate } = periodRange(activePeriod, date);
+        const from = toDateString(fromDate);
+        const to = toDateString(toDate);
         const [ts, items, members] = await Promise.all([
           api.get(
             `/organisations/${orgId}/members/${memberId}/timesheet?from=${from}&to=${to}`
@@ -141,8 +194,8 @@ export function OrgMemberViewPage() {
   );
 
   useEffect(() => {
-    loadData(selectedMonth);
-  }, [selectedMonth, loadData]);
+    loadData(selectedDate, period);
+  }, [selectedDate, period, loadData]);
 
   // Derive per-project breakdown from timesheet entries
   const byProject = useMemo(() => {
@@ -189,34 +242,77 @@ export function OrgMemberViewPage() {
           </div>
         </div>
 
-        {/* Month navigation */}
+        {/* Period label */}
+        <h2 className="text-lg font-semibold mb-3">{rangeLabel}</h2>
+
+        {/* Date navigation */}
         <div className="flex items-center gap-2 mb-4">
           <Button
             variant="outline"
             size="icon"
             className="h-9 w-9"
-            onClick={() => navigateMonth(-1)}
+            onClick={() => navigateDate(-1)}
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <h2 className="text-lg font-semibold min-w-[160px] text-center">
-            {monthLabel}
-          </h2>
+
+          <div className="relative">
+            <input
+              type="date"
+              value={toDateString(selectedDate)}
+              onChange={(e) => {
+                if (e.target.value) {
+                  setSelectedDate(new Date(e.target.value + "T00:00:00"));
+                }
+              }}
+              className="bg-background border border-border rounded-md px-3 py-1.5 text-sm h-9 cursor-pointer"
+            />
+          </div>
+
           <Button
             variant="outline"
             size="icon"
             className="h-9 w-9"
-            onClick={() => navigateMonth(1)}
+            onClick={() => navigateDate(1)}
           >
             <ChevronRight className="h-4 w-4" />
           </Button>
+
+          {!isToday && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-9"
+              onClick={() => setSelectedDate(new Date())}
+            >
+              <Calendar className="h-3.5 w-3.5 mr-1.5" />
+              Today
+            </Button>
+          )}
         </div>
 
-        {/* Tab Switcher */}
+        {/* Period Switcher (Day / Week / Month) */}
+        <div className="flex gap-1 mb-3 bg-muted rounded-lg p-1">
+          {(["day", "week", "month"] as const).map((p) => (
+            <button
+              key={p}
+              onClick={() => setPeriod(p)}
+              className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                period === p
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {p.charAt(0).toUpperCase() + p.slice(1)}
+            </button>
+          ))}
+        </div>
+
+        {/* View Switcher */}
         <div className="flex gap-1 mb-6 bg-muted rounded-lg p-1">
           {(
             [
-              { key: "timesheet", label: "Monthly Timesheet" },
+              { key: "timesheet", label: "Timesheet" },
               { key: "workitems", label: "Work Items" },
             ] as const
           ).map((tab) => (
@@ -278,11 +374,12 @@ export function OrgMemberViewPage() {
                     <TimesheetTable
                       timesheet={timesheet}
                       showProject={byProject.length > 1}
+                      totalLabel={totalLabel}
                     />
                   </>
                 ) : (
                   <p className="text-muted-foreground text-sm text-center py-8">
-                    No work logged in {monthLabel}
+                    No work logged in {rangeLabel}
                   </p>
                 )}
               </>
@@ -294,7 +391,7 @@ export function OrgMemberViewPage() {
                 {workItems.length === 0 ? (
                   <Card>
                     <div className="py-12 text-center text-muted-foreground text-sm">
-                      No work items in {monthLabel}
+                      No work items in {rangeLabel}
                     </div>
                   </Card>
                 ) : (
