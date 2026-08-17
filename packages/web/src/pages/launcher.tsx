@@ -31,7 +31,21 @@ export function LauncherPage() {
   const [noteOpen, setNoteOpen] = useState(false);
   const [noteText, setNoteText] = useState("");
   const [noteSaving, setNoteSaving] = useState(false);
+  const [toast, setToast] = useState("");
   const noteInputRef = useRef<HTMLInputElement>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showToast = useCallback((message: string) => {
+    setToast(message);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(""), 3000);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+    };
+  }, []);
 
   const load = useCallback(async () => {
     const [s, st] = await Promise.all([
@@ -53,17 +67,25 @@ export function LauncherPage() {
   }, [noteOpen]);
 
   async function triggerProject(slug: string) {
-    await api.get(`/trigger/session/${slug}`);
-    const st = await api.get("/status");
-    setStatus(st);
+    try {
+      await api.get(`/trigger/session/${slug}`);
+      const st = await api.get("/status");
+      setStatus(st);
+    } catch {
+      showToast("Server unreachable");
+    }
   }
 
   async function stopAll() {
-    await api.get("/trigger/session/stop");
-    setNoteOpen(false);
-    setNoteText("");
-    const st = await api.get("/status");
-    setStatus(st);
+    try {
+      await api.get("/trigger/session/stop");
+      setNoteOpen(false);
+      setNoteText("");
+      const st = await api.get("/status");
+      setStatus(st);
+    } catch {
+      showToast("Server unreachable");
+    }
   }
 
   async function addNote() {
@@ -76,7 +98,7 @@ export function LauncherPage() {
       setNoteText("");
       setNoteOpen(false);
     } catch {
-      // silently fail
+      showToast("Server unreachable");
     } finally {
       setNoteSaving(false);
     }
@@ -149,6 +171,13 @@ export function LauncherPage() {
               {noteSaving ? "…" : "Add"}
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Transient toast — auto-dismisses after 3s */}
+      {toast && (
+        <div className="gnome-toast" role="alert">
+          {toast}
         </div>
       )}
     </div>

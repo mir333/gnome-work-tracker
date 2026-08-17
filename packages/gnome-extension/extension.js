@@ -210,6 +210,7 @@ const WorkTrackerBar = GObject.registerClass(
       httpGet(url, (err, data) => {
         if (err) {
           console.error(`[work-tracker] Trigger failed: ${err.message}`);
+          this._notifyError("start project");
           return;
         }
         this._activeWorkItem = data?.workItem ?? null;
@@ -235,6 +236,7 @@ const WorkTrackerBar = GObject.registerClass(
       httpGet(url, (err) => {
         if (err) {
           console.error(`[work-tracker] Stop failed: ${err.message}`);
+          this._notifyError("stop tracking");
           return;
         }
         this._activeWorkItem = null;
@@ -328,6 +330,7 @@ const WorkTrackerBar = GObject.registerClass(
       httpPost(url, { description: text.trim() }, (err, _data) => {
         if (err) {
           console.error(`[work-tracker] Add note failed: ${err.message}`);
+          this._notifyError("add note");
           return;
         }
         popup.close();
@@ -439,6 +442,7 @@ const WorkTrackerBar = GObject.registerClass(
       httpPut(url, { startedAt: newStart.toISOString() }, (err, data) => {
         if (err) {
           console.error(`[work-tracker] Update failed: ${err.message}`);
+          this._notifyError("update start time");
           return;
         }
         this._activeWorkItem = data?.workItem ?? this._activeWorkItem;
@@ -446,6 +450,13 @@ const WorkTrackerBar = GObject.registerClass(
         popup.destroy();
         this._editPopup = null;
       });
+    }
+
+    _notifyError(action) {
+      Main.notify(
+        "Work Tracker",
+        `Server unreachable — could not ${action}.`
+      );
     }
 
     _setActiveSlot(slotIndex) {
