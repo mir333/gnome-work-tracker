@@ -6,15 +6,21 @@ import {
   AuditAction,
   EntityType,
 } from "./audit-log.service";
+import { runCapture, type LocationCapture } from "../lib/location-capture";
 
 export const triggerService = {
   async resolveToken(apiToken: string) {
     return userProfileRepository.findByApiToken(apiToken);
   },
 
-  async startWork(userId: string, slug: string) {
+  async startWork(userId: string, slug: string, capture?: () => Promise<LocationCapture>) {
     const project = await projectRepository.findBySlug(slug);
     if (!project || project.userId !== userId) return null;
+
+    // Run the (up to 2s) location lookup before touching any active item, so a
+    // stop pressed during the lookup can't race a read-then-write gap where the
+    // previous item is already closed but the new one isn't created yet.
+    const captured = await runCapture(capture);
 
     // If already working on this project, return existing work item (idempotent)
     const active = await workItemRepository.findActiveByUser(userId);
@@ -48,11 +54,12 @@ export const triggerService = {
       }
     }
 
-    // Start new work item
+    // Start new work item (capture already resolved above, before the close/idempotent branches)
     const newItem = await workItemRepository.create({
       projectId: project.id,
       userId,
       startedAt: new Date(),
+      ...captured,
     });
 
     auditLogService.log(userId, AuditAction.WORK_ITEM_STARTED, EntityType.WORK_ITEM, newItem.id, {

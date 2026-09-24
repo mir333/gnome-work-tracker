@@ -244,7 +244,8 @@ export const organisationService = {
     viewerId: string,
     memberId: string,
     from?: string,
-    to?: string
+    to?: string,
+    opts: { includeLocation?: boolean } = {}
   ) {
     if (!(await this.canViewMemberData(orgId, viewerId))) return null;
     const target = await organisationMemberRepository.findByOrgAndUser(
@@ -256,7 +257,8 @@ export const organisationService = {
     return workItemRepository.findByUserAndDateRange(
       memberId,
       from ? new Date(from) : new Date(0),
-      to ? new Date(to) : new Date()
+      to ? new Date(to) : new Date(),
+      opts
     );
   },
 

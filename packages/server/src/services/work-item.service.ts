@@ -5,6 +5,7 @@ import {
   AuditAction,
   EntityType,
 } from "./audit-log.service";
+import { runCapture, type LocationCapture } from "../lib/location-capture";
 
 export const workItemService = {
   async listByProject(
@@ -44,7 +45,8 @@ export const workItemService = {
     userId: string,
     startedAt: string,
     endedAt: string,
-    description?: string
+    description?: string,
+    capture?: () => Promise<LocationCapture>
   ) {
     const project = await projectRepository.findById(projectId);
     if (!project || project.userId !== userId) return null;
@@ -53,6 +55,10 @@ export const workItemService = {
     const end = new Date(endedAt);
 
     if (end <= start) throw new Error("End time must be after start time");
+
+    // Run the (up to 2s) location lookup before checking for an overlapping
+    // item, so a slow lookup can't race a concurrent stop/close of another item.
+    const captured = await runCapture(capture);
 
     const overlap = await workItemRepository.findOverlapping(userId, start, end);
     if (overlap) throw new Error("Work item overlaps with existing entry");
@@ -63,6 +69,7 @@ export const workItemService = {
       startedAt: start,
       endedAt: end,
       description,
+      ...captured,
     });
 
     auditLogService.log(userId, AuditAction.WORK_ITEM_CREATED, EntityType.WORK_ITEM, item.id, {
