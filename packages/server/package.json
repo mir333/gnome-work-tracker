@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "bun run --hot src/index.ts",
+    "test": "bun test",
     "db:generate": "bunx --bun prisma generate",
     "db:migrate": "bunx --bun prisma migrate dev",
     "db:studio": "bunx --bun prisma studio"

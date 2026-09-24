@@ -130,11 +130,20 @@ model WorkItem {
   startedAt   DateTime
   endedAt     DateTime?
   description String?
+  ipAddress      String?
+  location       String?
+  locationSource String?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model IpLocationCache {
+  ip       String   @id
+  location String
+  cachedAt DateTime @default(now())
 }
 
 model DashboardConfig {
