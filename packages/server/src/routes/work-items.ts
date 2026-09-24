@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { requireAuth } from "../middleware/auth";
 import { workItemService } from "../services/work-item.service";
-import { captureLocation } from "../lib/location-capture";
+import { locationCaptureFor } from "../lib/location-capture";
 
 const workItems = new Hono();
 
@@ -33,7 +33,7 @@ workItems.post("/projects/:id/work-items", async (c) => {
       startedAt,
       endedAt,
       description,
-      () => captureLocation(c, "manual")
+      locationCaptureFor(c, "manual")
     );
     if (!item) return c.json({ error: "Project not found" }, 404);
     return c.json(item, 201);

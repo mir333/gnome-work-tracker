@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { requireAuth } from "../middleware/auth";
 import { triggerService } from "../services/trigger.service";
 import { workItemService } from "../services/work-item.service";
-import { captureLocation } from "../lib/location-capture";
+import { locationCaptureFor } from "../lib/location-capture";
 
 const trigger = new Hono();
 
@@ -15,8 +15,10 @@ trigger.get("/session/stop", requireAuth, async (c) => {
 
 trigger.get("/session/:slug", requireAuth, async (c) => {
   const userId = c.get("userId");
-  const workItem = await triggerService.startWork(userId, c.req.param("slug"), () =>
-    captureLocation(c, "trigger")
+  const workItem = await triggerService.startWork(
+    userId,
+    c.req.param("slug"),
+    locationCaptureFor(c, "trigger")
   );
   if (!workItem) return c.json({ error: "Project not found" }, 404);
   return c.json({ ok: true, workItem });
@@ -38,7 +40,7 @@ trigger.get("/:apiToken/:slug", async (c) => {
   const workItem = await triggerService.startWork(
     profile.userId,
     c.req.param("slug"),
-    () => captureLocation(c, "trigger")
+    locationCaptureFor(c, "trigger")
   );
   if (!workItem) return c.json({ error: "Project not found" }, 404);
   return c.json({ ok: true, workItem });
