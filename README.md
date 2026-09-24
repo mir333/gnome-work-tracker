@@ -48,6 +48,7 @@ The server runs at `http://localhost:3000` and the web app at `http://localhost:
 | `BETTER_AUTH_BASE_URL` | Public URL of the server | `http://localhost:3000` |
 | `PORT` | Server listen port | `3000` |
 | `CORS_ORIGIN` | Allowed CORS origin (web app URL) | `http://localhost:5173` |
+| `LOCATION_TRACKING` | `true` starts recording client IP + city on new work items (sent to ip-api.com). Inform employees first (GDPR). | unset (off) |
 | `LOCATION_WHITELIST` | Comma-separated emails of org owners/managers who may see where members logged work (IP + city). Inform employees before enabling (GDPR). | empty (nobody) |
 | `TRUST_PROXY` | `true` only behind your own reverse proxy that appends to `X-Forwarded-For`; otherwise the socket IP is used | unset |
 
@@ -104,6 +105,13 @@ Then rebuild the web container (since `VITE_API_URL` is baked in at build time):
 ```bash
 docker compose up -d --build web
 ```
+
+### IP / location tracking
+
+- Enabling needs `LOCATION_TRACKING=true` (collection) and `LOCATION_WHITELIST` (who may view it; they must also be an org owner/manager of the member).
+- Register whitelisted accounts before adding them (sign-up has no email verification).
+- Deployment check: after enabling, start tracking once from outside the host and confirm the stored IP isn't a Docker bridge address (172.x). If it is, put a reverse proxy in front and set `TRUST_PROXY=true`.
+- With `TRUST_PROXY=true`, don't publish the server port directly (remove `3300:3300`), otherwise clients can bypass the proxy and spoof `X-Forwarded-For`.
 
 ## Manual Production Deployment
 

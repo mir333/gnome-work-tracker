@@ -91,7 +91,7 @@ Never throws. The HTTP call goes through an injectable `fetch` so tests can mock
 | `POST /api/projects/:id/work-items` (manual entry) | yes | `manual` |
 | stop triggers, updates, description appends | no | — |
 
-Capture only happens when a **new** item is created. The idempotent "already on this project" branch of `startWork` returns the existing item unchanged. Routes compute `ip = getClientIp(c)` and `location = await resolveLocation(ip)`, then pass `{ ipAddress, location, locationSource }` into `triggerService.startWork(...)` / `workItemService.createManual(...)` as an optional `capture` argument.
+Location data is stored only when a **new** item is created. The lookup runs before any existing item is closed (so a slow lookup can't open a race with stop), which means the idempotent "already on this project" click also performs a (usually cached) lookup but stores nothing. Routes compute `ip = getClientIp(c)` and `location = await resolveLocation(ip)`, then pass `{ ipAddress, location, locationSource }` into `triggerService.startWork(...)` / `workItemService.createManual(...)` as an optional `capture` argument.
 
 For the session trigger and manual entries, the IP is wherever the user's browser is. For token triggers, it's the machine running the GNOME extension.
 
@@ -111,6 +111,8 @@ LOCATION_WHITELIST=boss@example.com,hr@example.com
 - Otherwise the response is unchanged.
 
 The whitelist adds to the org role and doesn't replace it. A whitelisted user only sees locations for members of orgs they own or manage.
+
+Collection is separately gated by `LOCATION_TRACKING=true` (default off). With it unset, no IP is stored or sent anywhere.
 
 ---
 
