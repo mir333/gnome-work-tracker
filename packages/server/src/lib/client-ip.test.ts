@@ -1,5 +1,7 @@
-import { describe, test, expect } from "bun:test";
-import { normalizeIp, isPrivateIp, clientIpFrom } from "./client-ip";
+import { describe, test, expect, afterEach } from "bun:test";
+import { normalizeIp, isPrivateIp, clientIpFrom, getClientIp } from "./client-ip";
+import { Hono } from "hono";
+import type { Context } from "hono";
 
 describe("normalizeIp", () => {
   test("unwraps IPv4-mapped IPv6", () => {
@@ -52,5 +54,65 @@ describe("clientIpFrom", () => {
   test("returns null when nothing is known", () => {
     expect(clientIpFrom(undefined, undefined, false)).toBeNull();
     expect(clientIpFrom("", undefined, false)).toBeNull();
+  });
+});
+
+describe("getClientIp", () => {
+  function appReturningIp() {
+    const app = new Hono();
+    app.get("/", (c: Context) => c.json({ ip: getClientIp(c) }));
+    return app;
+  }
+
+  const fakeServer = (address: string) => ({
+    requestIP: () => ({ address, family: address.includes(":") ? "IPv6" : "IPv4", port: 5555 }),
+  });
+
+  async function ipFor(headers: Record<string, string>, server?: unknown) {
+    const res = await appReturningIp().fetch(
+      new Request("http://x/", { headers }),
+      server as any
+    );
+    return ((await res.json()) as { ip: string | null }).ip;
+  }
+
+  afterEach(() => {
+    delete process.env.TRUST_PROXY;
+  });
+
+  test("ignores X-Forwarded-For when TRUST_PROXY is not set", async () => {
+    const ip = await ipFor(
+      { "x-forwarded-for": "1.2.3.4" },
+      fakeServer("203.0.113.5")
+    );
+    expect(ip).toBe("203.0.113.5");
+  });
+
+  test("uses X-Forwarded-For when TRUST_PROXY=true", async () => {
+    process.env.TRUST_PROXY = "true";
+    const ip = await ipFor(
+      { "x-forwarded-for": "1.2.3.4, 198.51.100.7" },
+      fakeServer("10.0.0.2")
+    );
+    expect(ip).toBe("198.51.100.7");
+  });
+
+  test("ignores X-Forwarded-For when TRUST_PROXY is not true", async () => {
+    process.env.TRUST_PROXY = "yes";
+    const ip = await ipFor(
+      { "x-forwarded-for": "1.2.3.4" },
+      fakeServer("203.0.113.5")
+    );
+    expect(ip).toBe("203.0.113.5");
+  });
+
+  test("normalizes IPv4-mapped peer address", async () => {
+    const ip = await ipFor({}, fakeServer("::ffff:203.0.113.5"));
+    expect(ip).toBe("203.0.113.5");
+  });
+
+  test("returns null when getConnInfo throws and no X-Forwarded-For", async () => {
+    const ip = await ipFor({});
+    expect(ip).toBeNull();
   });
 });
