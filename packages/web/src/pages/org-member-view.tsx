@@ -12,6 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { LocationBadge } from "@/components/location-badge";
 import { api } from "@/lib/api";
 import {
   formatHM,
@@ -66,6 +67,9 @@ interface WorkItemWithProject {
   endedAt: string | null;
   description: string | null;
   project: { id: string; name: string; slug: string };
+  ipAddress?: string | null;
+  location?: string | null;
+  locationSource?: string | null;
 }
 
 type TabKey = "timesheet" | "workitems";
@@ -134,6 +138,12 @@ export function OrgMemberViewPage() {
   const [period, setPeriod] = useState<PeriodKey>("month");
   const [activeTab, setActiveTab] = useState<TabKey>("timesheet");
   const [loading, setLoading] = useState(true);
+
+  // The fields are present (possibly null) only when the server allows this viewer to see them.
+  const showLocation = useMemo(
+    () => workItems.some((item) => "ipAddress" in item),
+    [workItems]
+  );
 
   const rangeLabel = periodLabel(period, selectedDate);
   const isToday = isSameDay(selectedDate, new Date());
@@ -405,6 +415,7 @@ export function OrgMemberViewPage() {
                           <TableHead>End</TableHead>
                           <TableHead>Duration</TableHead>
                           <TableHead>Description</TableHead>
+                          {showLocation && <TableHead>Location</TableHead>}
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -436,6 +447,15 @@ export function OrgMemberViewPage() {
                             <TableCell className="text-muted-foreground max-w-[300px] truncate">
                               {item.description || "—"}
                             </TableCell>
+                            {showLocation && (
+                              <TableCell>
+                                <LocationBadge
+                                  ipAddress={item.ipAddress}
+                                  location={item.location}
+                                  locationSource={item.locationSource}
+                                />
+                              </TableCell>
+                            )}
                           </TableRow>
                         ))}
                       </TableBody>
