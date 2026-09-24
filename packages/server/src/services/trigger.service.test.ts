@@ -232,18 +232,49 @@ describe("triggerService.startWork location capture", () => {
     });
   });
 
-  test("does not capture when the same project is already active", async () => {
-    mockFindBySlug.mockResolvedValue(project as any);
-    mockFindActiveByUser.mockResolvedValue({
+  test("does not create or store anything when the same project is already active", async () => {
+    const existingWorkItem = {
       id: "wi-1", projectId: PROJECT_ID, userId: USER_ID,
       startedAt: new Date(Date.now() - 60_000), endedAt: null, project,
-    } as any);
+    };
+    mockFindBySlug.mockResolvedValue(project as any);
+    mockFindActiveByUser.mockResolvedValue(existingWorkItem as any);
     const capture = mock(async () => captured);
+
+    const result = await triggerService.startWork(USER_ID, SLUG, capture);
+
+    expect(mockCreate).not.toHaveBeenCalled();
+    expect(result).toEqual(existingWorkItem as any);
+  });
+
+  test("captures location before closing the previous active item (no race with stop)", async () => {
+    const order: string[] = [];
+    const OTHER_PROJECT_ID = "proj-other";
+    const activeWorkItem = {
+      id: "wi-old", projectId: OTHER_PROJECT_ID, userId: USER_ID,
+      startedAt: new Date(Date.now() - 120_000), endedAt: null,
+      project: { id: OTHER_PROJECT_ID, slug: "other", name: "Other", userId: USER_ID },
+    };
+
+    mockFindBySlug.mockResolvedValue(project as any);
+    mockFindActiveByUser.mockResolvedValue(activeWorkItem as any);
+    mockUpdate.mockImplementation(async () => {
+      order.push("close");
+      return null as any;
+    });
+    mockDelete.mockImplementation(async () => {
+      order.push("close");
+      return null as any;
+    });
+    mockCreate.mockImplementation(async (data: any) => ({ id: "wi-new", ...data }) as any);
+    const capture = mock(async () => {
+      order.push("capture");
+      return captured;
+    });
 
     await triggerService.startWork(USER_ID, SLUG, capture);
 
-    expect(capture).not.toHaveBeenCalled();
-    expect(mockCreate).not.toHaveBeenCalled();
+    expect(order).toEqual(["capture", "close"]);
   });
 
   test("does not capture when the project is not found", async () => {

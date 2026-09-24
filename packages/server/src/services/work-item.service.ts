@@ -56,10 +56,13 @@ export const workItemService = {
 
     if (end <= start) throw new Error("End time must be after start time");
 
+    // Run the (up to 2s) location lookup before checking for an overlapping
+    // item, so a slow lookup can't race a concurrent stop/close of another item.
+    const captured = await runCapture(capture);
+
     const overlap = await workItemRepository.findOverlapping(userId, start, end);
     if (overlap) throw new Error("Work item overlaps with existing entry");
 
-    const captured = await runCapture(capture);
     const item = await workItemRepository.create({
       projectId,
       userId,

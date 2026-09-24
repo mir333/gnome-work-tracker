@@ -71,4 +71,21 @@ describe("workItemService.createManual location capture", () => {
     await expect(workItemService.createManual(PROJECT.id, USER_ID, END, START, undefined, capture)).rejects.toThrow();
     expect(capture).not.toHaveBeenCalled();
   });
+
+  test("captures location before checking for overlapping items (no race with a concurrent close)", async () => {
+    mockFindById.mockResolvedValue(PROJECT);
+    const order: string[] = [];
+    mockFindOverlapping.mockImplementation(async () => {
+      order.push("overlap-check");
+      return null;
+    });
+    const capture = mock(async () => {
+      order.push("capture");
+      return { ipAddress: "203.0.113.5", location: "Prague, Czechia", locationSource: "manual" as const };
+    });
+
+    await workItemService.createManual(PROJECT.id, USER_ID, START, END, "note", capture);
+
+    expect(order).toEqual(["capture", "overlap-check"]);
+  });
 });

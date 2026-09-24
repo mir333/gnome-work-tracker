@@ -17,6 +17,11 @@ export const triggerService = {
     const project = await projectRepository.findBySlug(slug);
     if (!project || project.userId !== userId) return null;
 
+    // Run the (up to 2s) location lookup before touching any active item, so a
+    // stop pressed during the lookup can't race a read-then-write gap where the
+    // previous item is already closed but the new one isn't created yet.
+    const captured = await runCapture(capture);
+
     // If already working on this project, return existing work item (idempotent)
     const active = await workItemRepository.findActiveByUser(userId);
     if (active && active.projectId === project.id) {
@@ -49,8 +54,7 @@ export const triggerService = {
       }
     }
 
-    // Start new work item (capture runs only here, after the idempotent and not-found exits)
-    const captured = await runCapture(capture);
+    // Start new work item (capture already resolved above, before the close/idempotent branches)
     const newItem = await workItemRepository.create({
       projectId: project.id,
       userId,
