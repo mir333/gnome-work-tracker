@@ -8,6 +8,7 @@ const dir = mkdtempSync(join(tmpdir(), "wt-db-test-"));
 const url = `file:${join(dir, "test.db")}`;
 let db: ReturnType<typeof createPrismaClient>;
 let itemId: string;
+let created: unknown;
 
 beforeAll(async () => {
   const res = Bun.spawnSync(["bunx", "--bun", "prisma", "migrate", "deploy"], {
@@ -30,6 +31,7 @@ beforeAll(async () => {
     },
   });
   itemId = item.id;
+  created = item;
 });
 
 afterAll(async () => {
@@ -41,7 +43,7 @@ describe("work item location fields", () => {
   test("are hidden by default, including on create results and includes", async () => {
     const plain = await db.workItem.findUnique({ where: { id: itemId } });
     const withProject = await db.workItem.findMany({ include: { project: true } });
-    for (const obj of [plain, withProject[0]]) {
+    for (const obj of [created, plain, withProject[0]]) {
       expect(obj).not.toHaveProperty("ipAddress");
       expect(obj).not.toHaveProperty("location");
       expect(obj).not.toHaveProperty("locationSource");
