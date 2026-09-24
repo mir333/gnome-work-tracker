@@ -1,4 +1,4 @@
-import { prisma } from "../db";
+import { prisma, SHOW_LOCATION } from "../db";
 
 export const workItemRepository = {
   async findByProject(projectId: string, dateFrom?: Date, dateTo?: Date) {
@@ -80,7 +80,12 @@ export const workItemRepository = {
     return prisma.workItem.update({ where: { id }, data });
   },
 
-  async findByUserAndDateRange(userId: string, from: Date, to: Date) {
+  async findByUserAndDateRange(
+    userId: string,
+    from: Date,
+    to: Date,
+    opts: { includeLocation?: boolean } = {}
+  ) {
     return prisma.workItem.findMany({
       where: {
         userId,
@@ -88,6 +93,7 @@ export const workItemRepository = {
       },
       include: { project: true },
       orderBy: { startedAt: "asc" },
+      omit: opts.includeLocation ? SHOW_LOCATION : undefined,
     });
   },
 

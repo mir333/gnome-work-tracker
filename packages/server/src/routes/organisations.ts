@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { requireAuth, requireOrgRole } from "../middleware/auth";
 import { organisationService } from "../services/organisation.service";
 import { timesheetService } from "../services/timesheet.service";
+import { isLocationWhitelisted } from "../lib/whitelist";
 
 const organisations = new Hono();
 
@@ -183,12 +184,14 @@ organisations.get(
   async (c) => {
     const userId = c.get("userId");
     const { from, to } = c.req.query();
+    const includeLocation = isLocationWhitelisted(c.get("user")?.email);
     const items = await organisationService.getMemberWorkItems(
       c.req.param("orgId"),
       userId,
       c.req.param("memberId"),
       from,
-      to
+      to,
+      { includeLocation }
     );
     if (!items)
       return c.json({ error: "Not authorized or member not found" }, 403);
