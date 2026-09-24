@@ -6,13 +6,14 @@ import {
   AuditAction,
   EntityType,
 } from "./audit-log.service";
+import { runCapture, type LocationCapture } from "../lib/location-capture";
 
 export const triggerService = {
   async resolveToken(apiToken: string) {
     return userProfileRepository.findByApiToken(apiToken);
   },
 
-  async startWork(userId: string, slug: string) {
+  async startWork(userId: string, slug: string, capture?: () => Promise<LocationCapture>) {
     const project = await projectRepository.findBySlug(slug);
     if (!project || project.userId !== userId) return null;
 
@@ -48,11 +49,13 @@ export const triggerService = {
       }
     }
 
-    // Start new work item
+    // Start new work item (capture runs only here, after the idempotent and not-found exits)
+    const captured = await runCapture(capture);
     const newItem = await workItemRepository.create({
       projectId: project.id,
       userId,
       startedAt: new Date(),
+      ...captured,
     });
 
     auditLogService.log(userId, AuditAction.WORK_ITEM_STARTED, EntityType.WORK_ITEM, newItem.id, {

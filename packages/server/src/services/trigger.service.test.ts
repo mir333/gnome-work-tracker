@@ -209,3 +209,60 @@ describe("triggerService.updateWorkItem", () => {
     expect(mockUpdate).not.toHaveBeenCalled();
   });
 });
+
+describe("triggerService.startWork location capture", () => {
+  const project = { id: PROJECT_ID, slug: SLUG, name: "My Project", userId: USER_ID };
+  const captured = { ipAddress: "203.0.113.5", location: "Prague, Czechia", locationSource: "trigger" as const };
+
+  test("stores the capture on a newly created work item", async () => {
+    mockFindBySlug.mockResolvedValue(project as any);
+    mockFindActiveByUser.mockResolvedValue(null);
+    mockCreate.mockImplementation(async (data: any) => ({ id: "wi-new", ...data }) as any);
+    const capture = mock(async () => captured);
+
+    await triggerService.startWork(USER_ID, SLUG, capture);
+
+    expect(capture).toHaveBeenCalledTimes(1);
+    expect(mockCreate.mock.calls[0][0]).toMatchObject({
+      projectId: PROJECT_ID,
+      userId: USER_ID,
+      ipAddress: "203.0.113.5",
+      location: "Prague, Czechia",
+      locationSource: "trigger",
+    });
+  });
+
+  test("does not capture when the same project is already active", async () => {
+    mockFindBySlug.mockResolvedValue(project as any);
+    mockFindActiveByUser.mockResolvedValue({
+      id: "wi-1", projectId: PROJECT_ID, userId: USER_ID,
+      startedAt: new Date(Date.now() - 60_000), endedAt: null, project,
+    } as any);
+    const capture = mock(async () => captured);
+
+    await triggerService.startWork(USER_ID, SLUG, capture);
+
+    expect(capture).not.toHaveBeenCalled();
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+
+  test("does not capture when the project is not found", async () => {
+    mockFindBySlug.mockResolvedValue(null);
+    const capture = mock(async () => captured);
+
+    expect(await triggerService.startWork(USER_ID, "nope", capture)).toBeNull();
+    expect(capture).not.toHaveBeenCalled();
+  });
+
+  test("still starts work when capture rejects", async () => {
+    mockFindBySlug.mockResolvedValue(project as any);
+    mockFindActiveByUser.mockResolvedValue(null);
+    mockCreate.mockImplementation(async (data: any) => ({ id: "wi-new", ...data }) as any);
+    const capture = mock(async () => { throw new Error("boom"); });
+
+    const result = await triggerService.startWork(USER_ID, SLUG, capture);
+
+    expect(result).not.toBeNull();
+    expect(mockCreate.mock.calls[0][0]).not.toHaveProperty("ipAddress");
+  });
+});

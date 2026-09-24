@@ -66,6 +66,9 @@ export const workItemRepository = {
     startedAt: Date;
     endedAt?: Date;
     description?: string;
+    ipAddress?: string | null;
+    location?: string | null;
+    locationSource?: string | null;
   }) {
     return prisma.workItem.create({ data });
   },
