@@ -10,6 +10,7 @@ services:
       - PORT=${PORT:-3300}
       - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:8080}
       - TRUST_PROXY=${TRUST_PROXY:-}
+      - LOCATION_WHITELIST=${LOCATION_WHITELIST:-}
       # Passkey / WebAuthn configuration
       # RP ID must match the domain the app is served from (no port, no scheme)
       - PASSKEY_RP_ID=${PASSKEY_RP_ID:-localhost}
