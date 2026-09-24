@@ -19,7 +19,7 @@ A work-from-home safeguard. Employers need to check that employees log work from
 - Geocoding never makes a create request fail and never blocks it for more than 2 seconds
 - `ipAddress`, `location` and `locationSource` never appear in any API response except the org member work-items endpoint, and only when the caller is whitelisted
 - Whitelisted owners/managers see a 📍 location badge per work item in the org member view
-- Each public IP is geocoded at most once per 30 days (DB cache)
+- Each public IP is geocoded at most once per 30 days (DB cache); two simultaneous first requests from the same new IP may both call the provider, which is acceptable
 
 ---
 

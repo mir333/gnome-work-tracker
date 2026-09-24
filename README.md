@@ -48,6 +48,8 @@ The server runs at `http://localhost:3000` and the web app at `http://localhost:
 | `BETTER_AUTH_BASE_URL` | Public URL of the server | `http://localhost:3000` |
 | `PORT` | Server listen port | `3000` |
 | `CORS_ORIGIN` | Allowed CORS origin (web app URL) | `http://localhost:5173` |
+| `LOCATION_WHITELIST` | Comma-separated emails of org owners/managers who may see where members logged work (IP + city). Inform employees before enabling (GDPR). | empty (nobody) |
+| `TRUST_PROXY` | `true` only behind your own reverse proxy that appends to `X-Forwarded-For`; otherwise the socket IP is used | unset |
 
 ### Web (`packages/web/.env`)
 
