@@ -120,10 +120,10 @@ Only `src/pages/org-member-view.tsx` changes:
 
 - `WorkItemWithProject` gets optional `ipAddress?`, `location?`, `locationSource?`
 - New component `src/components/location-badge.tsx`:
-  - `📍 Prague, Czechia` when `location` is set; otherwise `📍 <ipAddress>`; renders nothing when both are absent
+  - `📍 Prague, Czechia` when `location` is set; otherwise `📍 <ipAddress>`; `—` when both are empty (e.g. items created before this feature)
   - Appends a muted `manual` label when `locationSource === "manual"`
   - Tooltip (`title`) shows the raw IP
-- A "Location" column is added to the work items table **only when at least one item has `ipAddress`**, so non-whitelisted viewers see the exact same table as before.
+- A "Location" column is added to the work items table **only when the response contains the `ipAddress` key** (the key is present, possibly `null`, only for whitelisted viewers), so non-whitelisted viewers see the exact same table as before.
 
 Dashboard, project detail, launcher and the GNOME extension are unchanged.
 
@@ -131,7 +131,7 @@ Dashboard, project detail, launcher and the GNOME extension are unchanged.
 
 ## Testing
 
-- Add `"test": "bun test"` to `packages/server/package.json` (the repo has no tests yet)
+- Add `"test": "bun test"` to `packages/server/package.json` (one `bun:test` file already exists: `src/services/trigger.service.test.ts`; there's just no script)
 - Unit tests: `isPrivateIp`, `getClientIp` (peer by default, spoofed `X-Forwarded-For` ignored, last entry used with `TRUST_PROXY=true`), `isLocationWhitelisted`, and `resolveLocation` (private IP skip, cache hit, stale cache refetch, success, `fail`, timeout/throw), using a mocked fetch and a mocked cache repository
 - Manual verification: start tracking from the web and from the extension, confirm the stored IP is the real client IP (not `127.0.0.1` / `172.x`), confirm the org member view shows the badge for a whitelisted manager and no column for a non-whitelisted one, and confirm `/api/status` never contains `ipAddress`
 
