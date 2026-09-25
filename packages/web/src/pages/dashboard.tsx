@@ -18,7 +18,7 @@ import {
   formatMonth,
   shortDayName,
 } from "@/lib/date-utils";
-import { Clock, ChevronLeft, ChevronRight, Calendar, Trash2, Pencil } from "lucide-react";
+import { Clock, ChevronLeft, ChevronRight, Calendar, Trash2, Pencil, AlertTriangle } from "lucide-react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import {
   Dialog,
@@ -110,6 +110,51 @@ const SLOT_BG_LIGHT = [
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+function formatTime(d: Date): string {
+  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+interface OverlapInfo {
+  other: WorkItemWithProject;
+  from: Date;
+  to: Date;
+}
+
+/**
+ * For each item, find the other items whose [start, end) interval intersects
+ * with it. Running items (no endedAt) are treated as ending "now".
+ */
+function computeOverlaps(
+  items: WorkItemWithProject[]
+): Map<string, OverlapInfo[]> {
+  const now = Date.now();
+  const ranges = items.map((it) => ({
+    item: it,
+    start: new Date(it.startedAt).getTime(),
+    end: it.endedAt ? new Date(it.endedAt).getTime() : now,
+  }));
+  const result = new Map<string, OverlapInfo[]>();
+  for (let i = 0; i < ranges.length; i++) {
+    for (let j = i + 1; j < ranges.length; j++) {
+      const a = ranges[i];
+      const b = ranges[j];
+      const from = Math.max(a.start, b.start);
+      const to = Math.min(a.end, b.end);
+      // Require at least a full minute of overlap to ignore back-to-back
+      // entries that share a boundary or differ by a few seconds.
+      if (to - from < 60_000) continue;
+      const push = (key: string, other: WorkItemWithProject) => {
+        const list = result.get(key) ?? [];
+        list.push({ other, from: new Date(from), to: new Date(to) });
+        result.set(key, list);
+      };
+      push(a.item.id, b.item);
+      push(b.item.id, a.item);
+    }
+  }
+  return result;
+}
 
 interface ProjectAgg {
   project: { id: string; name: string; slug: string };
@@ -490,6 +535,8 @@ export function DashboardPage() {
 
   const total = totalMinutes(currentItems);
 
+  const dayOverlaps = useMemo(() => computeOverlaps(dayItems), [dayItems]);
+
   // Header label
   const dateLabel =
     activeTab === "day"
@@ -610,7 +657,16 @@ export function DashboardPage() {
 
             {/* Timeline */}
             <div>
-              <h2 className="text-lg font-semibold mb-4">Timeline</h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold">Timeline</h2>
+                {dayOverlaps.size > 0 && (
+                  <span className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                    {dayOverlaps.size} overlapping{" "}
+                    {dayOverlaps.size === 1 ? "entry" : "entries"}
+                  </span>
+                )}
+              </div>
               <div className="space-y-1.5">
                 {dayItems.map((item) => {
                   const start = new Date(item.startedAt);
@@ -622,23 +678,58 @@ export function DashboardPage() {
                     Math.floor((end.getTime() - start.getTime()) / 60000)
                   );
                   const colorIdx = getColorIndex(item.project.id, colorMap);
+                  const overlaps = dayOverlaps.get(item.id);
+                  const endsOnOtherDay =
+                    !!item.endedAt && !isSameDay(start, end);
                   return (
                     <div key={item.id} className="flex items-center gap-3">
-                      <span className="text-xs text-muted-foreground w-12 text-right font-mono">
-                        {start.toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </span>
+                      <div className="w-14 text-right font-mono leading-tight shrink-0">
+                        <div className="text-xs text-muted-foreground">
+                          {formatTime(start)}
+                        </div>
+                        <div
+                          className="text-[10px] text-muted-foreground/70"
+                          title={
+                            item.endedAt
+                              ? end.toLocaleString()
+                              : "Still running"
+                          }
+                        >
+                          {item.endedAt ? formatTime(end) : "now"}
+                          {endsOnOtherDay && (
+                            <sup className="ml-px">+1</sup>
+                          )}
+                        </div>
+                      </div>
                       <div
-                        className={`flex-1 rounded-md px-3 py-2 text-sm cursor-pointer transition-all hover:opacity-80 border-l-4 bg-card ${SLOT_BORDER_COLORS[colorIdx]}`}
+                        className={`flex-1 min-w-0 rounded-md px-3 py-2 text-sm cursor-pointer transition-all hover:opacity-80 border-l-4 ${SLOT_BORDER_COLORS[colorIdx]} ${
+                          overlaps
+                            ? "bg-amber-50 dark:bg-amber-950/30 ring-1 ring-amber-400/70 dark:ring-amber-500/50"
+                            : "bg-card"
+                        }`}
                         onClick={() => openEdit(item)}
+                        title={
+                          overlaps
+                            ? "Overlaps with:\n" +
+                              overlaps
+                                .map(
+                                  (o) =>
+                                    `• ${o.other.project.name} (${formatTime(o.from)} – ${formatTime(o.to)})`
+                                )
+                                .join("\n")
+                            : undefined
+                        }
                       >
-                        <div className="flex items-center justify-between">
-                          <span className="font-medium">
-                            {item.project.name}
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-medium flex items-center gap-1.5 min-w-0">
+                            <span className="truncate">
+                              {item.project.name}
+                            </span>
+                            {overlaps && (
+                              <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                            )}
                           </span>
-                          <span className="text-muted-foreground text-xs flex items-center gap-1">
+                          <span className="text-muted-foreground text-xs flex items-center gap-1 shrink-0">
                             {formatHM(mins)}
                             {!item.endedAt && (
                               <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
@@ -648,6 +739,17 @@ export function DashboardPage() {
                         {item.description && (
                           <p className="text-xs text-muted-foreground mt-1 truncate">
                             {item.description}
+                          </p>
+                        )}
+                        {overlaps && (
+                          <p className="text-xs text-amber-700 dark:text-amber-400 mt-1 truncate">
+                            Overlaps{" "}
+                            {overlaps
+                              .map(
+                                (o) =>
+                                  `${o.other.project.name} ${formatTime(o.from)}–${formatTime(o.to)}`
+                              )
+                              .join(", ")}
                           </p>
                         )}
                       </div>
