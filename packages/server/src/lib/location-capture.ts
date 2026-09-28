@@ -1,20 +1,16 @@
 import type { Context } from "hono";
 import { getClientIp } from "./client-ip";
-import { geoService } from "../services/geo.service";
 
 export type LocationSource = "trigger" | "manual";
 
 export type LocationCapture = {
   ipAddress: string | null;
-  location: string | null;
   locationSource: LocationSource;
 };
 
-/** Reads the client IP from the request and resolves it. Never throws. */
+/** Records the client IP from the request as-is (no geo resolution). Never throws. */
 export async function captureLocation(c: Context, source: LocationSource): Promise<LocationCapture> {
-  const ipAddress = getClientIp(c);
-  const location = await geoService.resolveLocation(ipAddress);
-  return { ipAddress, location, locationSource: source };
+  return { ipAddress: getClientIp(c), locationSource: source };
 }
 
 /** Collection is opt-in: nothing is captured unless this is explicitly enabled. */

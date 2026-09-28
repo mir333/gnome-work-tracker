@@ -108,7 +108,7 @@ docker compose up -d --build web
 
 ### IP / location tracking
 
-- Enabling needs `LOCATION_TRACKING=true` (collection) and `LOCATION_WHITELIST` (who may view it; they must also be an org owner/manager of the member).
+- The client IP is stored as-is (no geo lookup / third-party calls); the UI shows the IP. Enabling needs `LOCATION_TRACKING=true` (collection) and `LOCATION_WHITELIST` (who may view it; they must also be an org owner/manager of the member).
 - Register whitelisted accounts before adding them (sign-up has no email verification).
 - Deployment check: after enabling, start tracking once from outside the host and confirm the stored IP isn't a Docker bridge address (172.x). If it is, put a reverse proxy in front and set `TRUST_PROXY=true`.
 - With `TRUST_PROXY=true`, don't publish the server port directly (remove `3300:3300`), otherwise clients can bypass the proxy and spoof `X-Forwarded-For`.

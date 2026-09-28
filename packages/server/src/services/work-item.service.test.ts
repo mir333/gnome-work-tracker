@@ -43,7 +43,7 @@ describe("workItemService.createManual location capture", () => {
   test("stores the capture with locationSource manual", async () => {
     mockFindById.mockResolvedValue(PROJECT);
     const capture = mock(async () => ({
-      ipAddress: "203.0.113.5", location: "Prague, Czechia", locationSource: "manual" as const,
+      ipAddress: "203.0.113.5", locationSource: "manual" as const,
     }));
 
     await workItemService.createManual(PROJECT.id, USER_ID, START, END, "note", capture);
@@ -51,14 +51,13 @@ describe("workItemService.createManual location capture", () => {
     expect(capture).toHaveBeenCalledTimes(1);
     expect(mockCreate.mock.calls[0][0]).toMatchObject({
       ipAddress: "203.0.113.5",
-      location: "Prague, Czechia",
       locationSource: "manual",
     });
   });
 
   test("does not capture when the project is not the caller's", async () => {
     mockFindById.mockResolvedValue({ ...PROJECT, userId: "someone-else" });
-    const capture = mock(async () => ({ ipAddress: "1.1.1.1", location: null, locationSource: "manual" as const }));
+    const capture = mock(async () => ({ ipAddress: "1.1.1.1", locationSource: "manual" as const }));
 
     expect(await workItemService.createManual(PROJECT.id, USER_ID, START, END, undefined, capture)).toBeNull();
     expect(capture).not.toHaveBeenCalled();
@@ -66,7 +65,7 @@ describe("workItemService.createManual location capture", () => {
 
   test("does not capture when validation fails", async () => {
     mockFindById.mockResolvedValue(PROJECT);
-    const capture = mock(async () => ({ ipAddress: "1.1.1.1", location: null, locationSource: "manual" as const }));
+    const capture = mock(async () => ({ ipAddress: "1.1.1.1", locationSource: "manual" as const }));
 
     await expect(workItemService.createManual(PROJECT.id, USER_ID, END, START, undefined, capture)).rejects.toThrow();
     expect(capture).not.toHaveBeenCalled();
@@ -81,7 +80,7 @@ describe("workItemService.createManual location capture", () => {
     });
     const capture = mock(async () => {
       order.push("capture");
-      return { ipAddress: "203.0.113.5", location: "Prague, Czechia", locationSource: "manual" as const };
+      return { ipAddress: "203.0.113.5", locationSource: "manual" as const };
     });
 
     await workItemService.createManual(PROJECT.id, USER_ID, START, END, "note", capture);

@@ -140,12 +140,6 @@ model WorkItem {
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-model IpLocationCache {
-  ip       String   @id
-  location String
-  cachedAt DateTime @default(now())
-}
-
 model DashboardConfig {
   id        String   @id @default(uuid())
   userId    String

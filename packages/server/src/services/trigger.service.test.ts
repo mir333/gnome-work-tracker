@@ -212,7 +212,7 @@ describe("triggerService.updateWorkItem", () => {
 
 describe("triggerService.startWork location capture", () => {
   const project = { id: PROJECT_ID, slug: SLUG, name: "My Project", userId: USER_ID };
-  const captured = { ipAddress: "203.0.113.5", location: "Prague, Czechia", locationSource: "trigger" as const };
+  const captured = { ipAddress: "203.0.113.5", locationSource: "trigger" as const };
 
   test("stores the capture on a newly created work item", async () => {
     mockFindBySlug.mockResolvedValue(project as any);
@@ -227,7 +227,6 @@ describe("triggerService.startWork location capture", () => {
       projectId: PROJECT_ID,
       userId: USER_ID,
       ipAddress: "203.0.113.5",
-      location: "Prague, Czechia",
       locationSource: "trigger",
     });
   });

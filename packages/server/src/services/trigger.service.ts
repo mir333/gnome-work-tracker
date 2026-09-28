@@ -17,9 +17,9 @@ export const triggerService = {
     const project = await projectRepository.findBySlug(slug);
     if (!project || project.userId !== userId) return null;
 
-    // Run the (up to 2s) location lookup before touching any active item, so a
-    // stop pressed during the lookup can't race a read-then-write gap where the
-    // previous item is already closed but the new one isn't created yet.
+    // Capture the client IP before touching any active item, so the capture
+    // step can't race a read-then-write gap where the previous item is already
+    // closed but the new one isn't created yet.
     const captured = await runCapture(capture);
 
     // If already working on this project, return existing work item (idempotent)
