@@ -36,6 +36,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { api } from "@/lib/api";
+import { useRefresh } from "@/lib/refresh";
 import {
   Plus,
   X,
@@ -177,6 +178,14 @@ export function OrganisationPage() {
       loadOrgDetails(selectedOrgId);
     }
   }, [selectedOrgId, loadOrgDetails]);
+
+  useRefresh(() =>
+    Promise.all([
+      loadOrgs(),
+      loadMyInvites(),
+      selectedOrgId ? loadOrgDetails(selectedOrgId) : undefined,
+    ])
+  );
 
   // ---------------------------------------------------------------------------
   // Actions

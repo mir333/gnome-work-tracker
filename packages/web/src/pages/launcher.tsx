@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { api } from "@/lib/api";
+import { useRefresh, useRefreshControl } from "@/lib/refresh";
 
 interface Project {
   id: string;
@@ -59,6 +60,9 @@ export function LauncherPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useRefresh(load);
+  const { refresh, refreshing } = useRefreshControl();
 
   useEffect(() => {
     if (noteOpen && noteInputRef.current) {
@@ -121,6 +125,17 @@ export function LauncherPage() {
               </button>
             );
           })}
+
+          {/* Refresh button */}
+          <button
+            className="gnome-btn gnome-btn-note"
+            onClick={() => refresh()}
+            disabled={refreshing}
+            title="Refresh"
+            aria-label="Refresh"
+          >
+            ↻
+          </button>
 
           {/* Note button */}
           <button

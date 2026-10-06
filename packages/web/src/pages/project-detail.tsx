@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { api } from "@/lib/api";
+import { useRefresh } from "@/lib/refresh";
 import {
   toDateString,
   startOfMonth,
@@ -145,6 +146,14 @@ export function ProjectDetailPage() {
       loadTimesheet();
     }
   }, [activeTab, loadTimesheet]);
+
+  useRefresh(() =>
+    Promise.all([
+      load(),
+      activeTab === "timesheet" ? loadTimesheet() : undefined,
+      shares.length > 0 ? loadShares() : undefined,
+    ])
+  );
 
   // Pagination: items are already sorted newest-first from the API
   const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));

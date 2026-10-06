@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { useSession, authClient } from "@/lib/auth-client";
+import { useRefresh } from "@/lib/refresh";
 import { Fingerprint, Plus, Trash2, Monitor, Smartphone } from "lucide-react";
 
 interface PasskeyItem {
@@ -40,21 +41,23 @@ export function ProfilePage() {
   const [pkMsg, setPkMsg] = useState("");
   const [pkName, setPkName] = useState("");
 
-  const loadPasskeys = useCallback(async () => {
-    setPkLoading(true);
+  const loadPasskeys = useCallback(async ({ background = false } = {}) => {
+    if (!background) setPkLoading(true);
     try {
       const { data } = await authClient.passkey.listUserPasskeys();
       setPasskeys((data as PasskeyItem[]) ?? []);
     } catch {
       // passkeys not available
-      setPasskeys([]);
+      if (!background) setPasskeys([]);
     }
-    setPkLoading(false);
+    if (!background) setPkLoading(false);
   }, []);
 
   useEffect(() => {
     loadPasskeys();
   }, [loadPasskeys]);
+
+  useRefresh(() => loadPasskeys({ background: true }));
 
   async function handleUpdateProfile(e: React.FormEvent) {
     e.preventDefault();

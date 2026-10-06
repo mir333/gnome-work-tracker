@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { AppLayout } from "@/components/app-layout";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { api } from "@/lib/api";
+import { useRefresh } from "@/lib/refresh";
 import { TimesheetTable } from "@/components/timesheet-table";
 import type { TimesheetResult } from "@/lib/timesheet-types";
 
@@ -24,14 +25,25 @@ export function SharedTimesheetPage() {
   const [data, setData] = useState<SharedData | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const load = useCallback(
+    () =>
+      api
+        .get(`/shared/${token}`)
+        .then((shared) => {
+          setData(shared);
+          setError(null);
+        })
+        .catch(() => {
+          setError("This share link is invalid or has been revoked.");
+        }),
+    [token]
+  );
+
   useEffect(() => {
-    api
-      .get(`/shared/${token}`)
-      .then((shared) => setData(shared))
-      .catch(() => {
-        setError("This share link is invalid or has been revoked.");
-      });
-  }, [token]);
+    load();
+  }, [load]);
+
+  useRefresh(load);
 
   const monthLabel = useMemo(() => {
     if (!data) return "";

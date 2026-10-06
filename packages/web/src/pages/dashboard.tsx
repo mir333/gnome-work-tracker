@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { api } from "@/lib/api";
+import { useRefresh } from "@/lib/refresh";
 import {
   formatHM,
   toDateString,
@@ -464,10 +465,14 @@ export function DashboardPage() {
 
   // ---- Actions ----
   function reloadCurrentTab() {
-    if (activeTab === "day") loadDay(selectedDate);
-    else if (activeTab === "week") loadWeek(selectedDate);
-    else loadMonth(selectedDate);
+    if (activeTab === "day") return loadDay(selectedDate);
+    if (activeTab === "week") return loadWeek(selectedDate);
+    return loadMonth(selectedDate);
   }
+
+  useRefresh(() =>
+    Promise.all([loadSlots(), loadSettings(), reloadCurrentTab()])
+  );
 
   async function handleDeleteItem() {
     if (!deleteItemId) return;
