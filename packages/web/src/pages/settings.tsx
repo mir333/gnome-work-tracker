@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { api } from "@/lib/api";
+import { useRefresh } from "@/lib/refresh";
 
 export function SettingsPage() {
   const [apiToken, setApiToken] = useState("");
@@ -18,13 +19,18 @@ export function SettingsPage() {
       api.get("/profile/settings"),
     ]);
     setApiToken(profileData.apiToken);
-    setHoursPerManDay(settingsData.hoursPerManDay);
+    // Don't overwrite a value the user is currently editing
+    if (hoursPerManDay === savedHours) {
+      setHoursPerManDay(settingsData.hoursPerManDay);
+    }
     setSavedHours(settingsData.hoursPerManDay);
   }
 
   useEffect(() => {
     load();
   }, []);
+
+  useRefresh(load);
 
   async function regenerate() {
     const data = await api.post("/profile/regenerate-token", {});

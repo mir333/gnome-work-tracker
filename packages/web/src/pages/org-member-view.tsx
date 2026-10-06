@@ -14,6 +14,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { LocationBadge } from "@/components/location-badge";
 import { api } from "@/lib/api";
+import { useRefresh } from "@/lib/refresh";
 import {
   formatHM,
   toDateString,
@@ -169,9 +170,13 @@ export function OrgMemberViewPage() {
   }
 
   const loadData = useCallback(
-    async (date: Date, activePeriod: PeriodKey) => {
+    async (
+      date: Date,
+      activePeriod: PeriodKey,
+      { background = false } = {}
+    ) => {
       if (!orgId || !memberId) return;
-      setLoading(true);
+      if (!background) setLoading(true);
       try {
         const { from: fromDate, to: toDate } = periodRange(activePeriod, date);
         const from = toDateString(fromDate);
@@ -194,10 +199,13 @@ export function OrgMemberViewPage() {
         );
         if (member) setMemberName(member.user.name);
       } catch {
-        setTimesheet(null);
-        setWorkItems([]);
+        // Keep showing existing data if a background refresh fails
+        if (!background) {
+          setTimesheet(null);
+          setWorkItems([]);
+        }
       } finally {
-        setLoading(false);
+        if (!background) setLoading(false);
       }
     },
     [orgId, memberId]
@@ -206,6 +214,8 @@ export function OrgMemberViewPage() {
   useEffect(() => {
     loadData(selectedDate, period);
   }, [selectedDate, period, loadData]);
+
+  useRefresh(() => loadData(selectedDate, period, { background: true }));
 
   // Derive per-project breakdown from timesheet entries
   const byProject = useMemo(() => {

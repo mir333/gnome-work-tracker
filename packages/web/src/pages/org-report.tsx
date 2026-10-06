@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { api } from "@/lib/api";
+import { useRefresh } from "@/lib/refresh";
 import {
   formatHM,
   toDateString,
@@ -80,9 +81,9 @@ export function OrgReportPage() {
   }
 
   const loadReport = useCallback(
-    async (date: Date) => {
+    async (date: Date, { background = false } = {}) => {
       if (!orgId) return;
-      setLoading(true);
+      if (!background) setLoading(true);
       try {
         const ms = startOfMonth(date);
         const me = endOfMonth(date);
@@ -95,9 +96,10 @@ export function OrgReportPage() {
         setReportData(data);
         setOrgName(org.name);
       } catch {
-        setReportData([]);
+        // Keep showing existing data if a background refresh fails
+        if (!background) setReportData([]);
       } finally {
-        setLoading(false);
+        if (!background) setLoading(false);
       }
     },
     [orgId]
@@ -106,6 +108,8 @@ export function OrgReportPage() {
   useEffect(() => {
     loadReport(selectedMonth);
   }, [selectedMonth, loadReport]);
+
+  useRefresh(() => loadReport(selectedMonth, { background: true }));
 
   // Sort members by hours descending
   const sortedMembers = useMemo(

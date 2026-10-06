@@ -4,6 +4,7 @@ import { useSession, signOut } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Logo } from "@/components/logo";
+import { useRefreshControl } from "@/lib/refresh";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,6 +21,7 @@ import {
   Settings,
   LogOut,
   ChevronDown,
+  RefreshCw,
 } from "lucide-react";
 
 function NavLink({
@@ -77,6 +79,23 @@ function openLauncher() {
   );
 }
 
+function RefreshButton() {
+  const { refresh, refreshing } = useRefreshControl();
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      className="h-9 w-9 text-muted-foreground hover:text-foreground"
+      onClick={() => refresh()}
+      disabled={refreshing}
+      title="Refresh data"
+      aria-label="Refresh data"
+    >
+      <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+    </Button>
+  );
+}
+
 export function AppLayout({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
   const navigate = useNavigate();
@@ -113,6 +132,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
           </NavLink>
 
           <div className="ml-auto flex items-center gap-1">
+            <RefreshButton />
+
             {/* Launcher — opens in a new window / PWA */}
             <Button
               variant="ghost"
