@@ -1,17 +1,19 @@
 # GNOME Work Tracker
 
-A time-tracking application with a web dashboard and GNOME Shell extension for one-click project switching from the desktop panel.
+A time-tracking application with a web dashboard, a GNOME Shell extension and a macOS menu bar app for one-click project switching from the desktop panel.
 
 ## Architecture
 
 - **packages/server** - Hono API server with Prisma ORM, SQLite, and Better Auth
 - **packages/web** - React SPA with Vite, Tailwind CSS v4, and shadcn/ui
 - **packages/gnome-extension** - GNOME Shell extension (GJS) with panel buttons
+- **packages/macos-menubar** - macOS menu bar app (Swift/AppKit) with the same buttons as the GNOME extension
 
 ## Prerequisites
 
 - [Bun](https://bun.sh) (v1.0+)
 - GNOME Shell 45-50.1 (for the extension)
+- macOS 13+ with Xcode command line tools (for the menu bar app)
 
 ## Quick Start (Development)
 
@@ -199,3 +201,16 @@ After installing:
    ```
 
    Then click "Refresh Config" in the extension's panel menu to fetch your dashboard projects.
+
+### macOS Menu Bar App
+
+```bash
+cd packages/macos-menubar
+./build-app.sh --install   # builds WorkTracker.app and copies it to /Applications
+```
+
+Open **Work Tracker** from Spotlight; the Settings window appears on first launch. Enter the server URL and API token, then click **Save & Connect**. See [packages/macos-menubar/README.md](packages/macos-menubar/README.md) for details.
+
+### Project short names
+
+Projects have an optional **short name** (max 12 characters, set in the project's create/edit dialog in the web app). The GNOME extension and the macOS menu bar app show it on their panel buttons instead of the full project name, which saves panel space.
