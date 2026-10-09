@@ -16,11 +16,11 @@ export const projectRepository = {
     return prisma.project.findUnique({ where: { slug } });
   },
 
-  async create(data: { name: string; slug: string; userId: string }) {
+  async create(data: { name: string; slug: string; userId: string; shortName?: string | null }) {
     return prisma.project.create({ data });
   },
 
-  async update(id: string, data: { name?: string; slug?: string }) {
+  async update(id: string, data: { name?: string; slug?: string; shortName?: string | null }) {
     return prisma.project.update({ where: { id }, data });
   },
 

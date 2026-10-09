@@ -14,10 +14,14 @@ projects.get("/", async (c) => {
 
 projects.post("/", async (c) => {
   const userId = c.get("userId");
-  const { name } = await c.req.json();
+  const { name, shortName } = await c.req.json();
   if (!name) return c.json({ error: "Name is required" }, 400);
-  const project = await projectService.create(userId, name);
-  return c.json(project, 201);
+  try {
+    const project = await projectService.create(userId, name, shortName);
+    return c.json(project, 201);
+  } catch (e: any) {
+    return c.json({ error: e.message }, 400);
+  }
 });
 
 projects.get("/:id", async (c) => {
