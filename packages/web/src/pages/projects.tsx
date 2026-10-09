@@ -35,6 +35,7 @@ import { Plus, Pencil, Trash2, LayoutDashboard, ChevronLeft, ChevronRight } from
 interface Project {
   id: string;
   name: string;
+  shortName: string | null;
   slug: string;
   createdAt: string;
 }
@@ -102,9 +103,11 @@ export function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [dashboardProjectIds, setDashboardProjectIds] = useState<Set<string>>(new Set());
   const [newName, setNewName] = useState("");
+  const [newShortName, setNewShortName] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editProject, setEditProject] = useState<Project | null>(null);
   const [editName, setEditName] = useState("");
+  const [editShortName, setEditShortName] = useState("");
 
   // Monthly summary state
   const [selectedMonth, setSelectedMonth] = useState<Date>(new Date());
@@ -168,8 +171,9 @@ export function ProjectsPage() {
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
-    await api.post("/projects", { name: newName });
+    await api.post("/projects", { name: newName, shortName: newShortName });
     setNewName("");
+    setNewShortName("");
     setDialogOpen(false);
     load();
     loadMonth(selectedMonth);
@@ -178,7 +182,10 @@ export function ProjectsPage() {
   async function handleEditName(e: React.FormEvent) {
     e.preventDefault();
     if (!editProject) return;
-    await api.put(`/projects/${editProject.id}`, { name: editName });
+    await api.put(`/projects/${editProject.id}`, {
+      name: editName,
+      shortName: editShortName,
+    });
     setEditProject(null);
     load();
   }
@@ -335,6 +342,19 @@ export function ProjectsPage() {
                     required
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="shortName">Short Name (optional)</Label>
+                  <Input
+                    id="shortName"
+                    value={newShortName}
+                    onChange={(e) => setNewShortName(e.target.value)}
+                    placeholder="MyProj"
+                    maxLength={12}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Shown on desktop panel buttons (max 12 characters).
+                  </p>
+                </div>
                 <Button type="submit" className="w-full">
                   Create
                 </Button>
@@ -373,6 +393,11 @@ export function ProjectsPage() {
                         <span className="font-medium hover:underline">
                           {p.name}
                         </span>
+                        {p.shortName && (
+                          <span className="ml-2 text-xs text-muted-foreground">
+                            ({p.shortName})
+                          </span>
+                        )}
                       </TableCell>
                       <TableCell>
                         <Badge variant="secondary" className="font-mono text-xs">
@@ -406,8 +431,9 @@ export function ProjectsPage() {
                             onClick={() => {
                               setEditProject(p);
                               setEditName(p.name);
+                              setEditShortName(p.shortName ?? "");
                             }}
-                            title="Rename project"
+                            title="Edit project"
                           >
                             <Pencil className="h-3.5 w-3.5" />
                           </Button>
@@ -429,7 +455,7 @@ export function ProjectsPage() {
           </Card>
         )}
 
-        {/* Rename project dialog */}
+        {/* Edit project dialog */}
         <Dialog
           open={!!editProject}
           onOpenChange={(open) => {
@@ -438,7 +464,7 @@ export function ProjectsPage() {
         >
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Rename Project</DialogTitle>
+              <DialogTitle>Edit Project</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleEditName} className="space-y-4">
               <div className="space-y-2">
@@ -449,6 +475,18 @@ export function ProjectsPage() {
                   onChange={(e) => setEditName(e.target.value)}
                   required
                 />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="editShortName">Short Name (optional)</Label>
+                <Input
+                  id="editShortName"
+                  value={editShortName}
+                  onChange={(e) => setEditShortName(e.target.value)}
+                  maxLength={12}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Shown on desktop panel buttons (max 12 characters).
+                </p>
               </div>
               <Button type="submit" className="w-full">
                 Save
