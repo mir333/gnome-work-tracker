@@ -112,6 +112,7 @@ model Project {
   id        String   @id @default(uuid())
   slug      String   @unique
   name      String
+  shortName String?
   userId    String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

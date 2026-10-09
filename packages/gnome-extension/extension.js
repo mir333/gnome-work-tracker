@@ -599,7 +599,7 @@ export default class WorkTrackerExtension extends Extension {
       for (const item of data) {
         const i = item.slot - 1;
         slugs[i] = item.projectSlug ?? "";
-        labels[i] = item.projectName ?? "";
+        labels[i] = item.projectShortName || item.projectName || "";
       }
 
       this._settings.set_strv("slot-slugs", slugs);

@@ -38,6 +38,7 @@ import type { TimesheetResult } from "@/lib/timesheet-types";
 interface Project {
   id: string;
   name: string;
+  shortName: string | null;
   slug: string;
 }
 
@@ -99,6 +100,7 @@ export function ProjectDetailPage() {
   // Edit project name
   const [editNameOpen, setEditNameOpen] = useState(false);
   const [editNameValue, setEditNameValue] = useState("");
+  const [editShortNameValue, setEditShortNameValue] = useState("");
 
   // Tab state
   const [activeTab, setActiveTab] = useState<TabKey>("timesheet");
@@ -169,7 +171,10 @@ export function ProjectDetailPage() {
 
   async function handleEditProjectName(e: React.FormEvent) {
     e.preventDefault();
-    await api.put(`/projects/${id}`, { name: editNameValue });
+    await api.put(`/projects/${id}`, {
+      name: editNameValue,
+      shortName: editShortNameValue,
+    });
     setEditNameOpen(false);
     load();
   }
@@ -280,9 +285,10 @@ export function ProjectDetailPage() {
               size="sm"
               onClick={() => {
                 setEditNameValue(project.name);
+                setEditShortNameValue(project.shortName ?? "");
                 setEditNameOpen(true);
               }}
-              title="Rename project"
+              title="Edit project"
             >
               <Pencil className="h-4 w-4" />
             </Button>
@@ -297,11 +303,11 @@ export function ProjectDetailPage() {
           </div>
         </div>
 
-        {/* Rename project dialog */}
+        {/* Edit project dialog */}
         <Dialog open={editNameOpen} onOpenChange={setEditNameOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Rename Project</DialogTitle>
+              <DialogTitle>Edit Project</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleEditProjectName} className="space-y-4">
               <div className="space-y-2">
@@ -312,6 +318,18 @@ export function ProjectDetailPage() {
                   onChange={(e) => setEditNameValue(e.target.value)}
                   required
                 />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="editProjectShortName">Short Name (optional)</Label>
+                <Input
+                  id="editProjectShortName"
+                  value={editShortNameValue}
+                  onChange={(e) => setEditShortNameValue(e.target.value)}
+                  maxLength={12}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Shown on desktop panel buttons (max 12 characters).
+                </p>
               </div>
               <Button type="submit" className="w-full">
                 Save

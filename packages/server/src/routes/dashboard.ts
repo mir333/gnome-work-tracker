@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { requireAuth } from "../middleware/auth";
-import { dashboardService } from "../services/dashboard.service";
+import { dashboardService, toTokenSlots } from "../services/dashboard.service";
 import { triggerService } from "../services/trigger.service";
 
 const dashboard = new Hono();
@@ -23,19 +23,13 @@ dashboard.put("/", requireAuth, async (c) => {
   }
 });
 
-// Token-authenticated route (for GNOME extension)
+// Token-authenticated route (for GNOME extension and macOS menu bar app)
 dashboard.get("/:apiToken", async (c) => {
   const profile = await triggerService.resolveToken(c.req.param("apiToken"));
   if (!profile) return c.json({ error: "Invalid token" }, 401);
 
   const slots = await dashboardService.getSlots(profile.userId);
-  return c.json(
-    slots.map((s: any) => ({
-      slot: s.slot,
-      projectSlug: s.project.slug,
-      projectName: s.project.name,
-    }))
-  );
+  return c.json(toTokenSlots(slots));
 });
 
 export { dashboard };
