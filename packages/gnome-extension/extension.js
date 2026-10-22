@@ -267,7 +267,6 @@ const WorkTrackerBar = GObject.registerClass(
       const item = new PopupMenu.PopupBaseMenuItem({ reactive: false });
 
       const box = new St.BoxLayout({
-        vertical: false,
         style_class: "work-tracker-edit-box",
       });
 
@@ -365,7 +364,6 @@ const WorkTrackerBar = GObject.registerClass(
       const item = new PopupMenu.PopupBaseMenuItem({ reactive: false });
 
       const box = new St.BoxLayout({
-        vertical: false,
         style_class: "work-tracker-edit-box",
       });
 
